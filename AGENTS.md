@@ -45,12 +45,3 @@ Whatever this plugin becomes, it asks for consent once. Before it takes any samp
 ## Layout
 
 This root's layout is governed by `wiser/standards/plugin-root.md`. That standard's C1 owns the `layout:` stamp: the current tree version, a bare nonnegative integer. `wiser/skills/Onboard Plugin Root/` writes it last, only once every applicable obligation other than the stamp itself scores present or N/A. A stamp written before that would advertise a conformance nothing had earned, which is why an unstamped tree reads as not current rather than as clean.
-
-## Handover
-
-Stood up 2026-10-19 by `wiser/skills/Onboard Plugin Root/`. Each line is owed to a person and names what closes it. Strike a line when its boundary closes; when the last line goes, delete this section.
-
-- Repository: owed (the operator; waits on creating `wisermethod/production-studio`, setting its remote and choosing its visibility)
-- First commit and push: owed (the operator; waits on the repository)
-- A row in the operator's repository roster: owed (the operator; waits on the repository)
-- Descriptions of this root: owed (the operator; waits on the build records that describe this plugin as planned and not yet stood up being updated)
