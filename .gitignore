@@ -6,3 +6,5 @@ infrastructure/release/dist/
 .Spotlight-V100
 .Trashes
 .stversions/
+tools/*/.venv/
+/.wiser-consent
