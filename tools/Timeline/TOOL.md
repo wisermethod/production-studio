@@ -97,7 +97,7 @@ Prefix commands with `python3 scripts/timeline.py`, using the interpreter decisi
 
 These are exactly the required keys at each level. Unknown and duplicate JSON keys are refused by name. `sources` and `segments` are nonempty lists. At most 63 segments are accepted: one Kinocut trim per segment plus the merge fits its 64-step workflow limit. Ids are unique across both lists and use only lowercase ASCII letters, digits and hyphens. Every segment names a declared source. `fps`, `start`, `end` and `speed` are integers, never booleans or numeric strings. `fps` is positive. `0 <= start < end <= source frame count`, with `end` exclusive. `speed >= 1`, and `end - start` must be divisible by speed. Segments may reuse or overlap a source. List order is cut order.
 
-A segment contributes `(end - start) / speed` frames. Its output frame `j` comes from source frame `start + j * speed`. Every segment uses FFmpeg `trim=start_frame:end_frame` and new timestamps, with frame-number `select` added for speeds above 1, never `kino speed`: the installed Kinocut 1.16.1 implementation uses setpts without a frame-rate step and does not land exact output frames.
+A segment contributes `(end - start) / speed` frames. Its output frame `j` comes from source frame `start + j * speed`. Every segment first declares its frames BT.709 at TV range with FFmpeg `setparams`, so a source taken as BT.709 is not converted, then uses `trim=start_frame:end_frame` and new timestamps, with frame-number `select` added for speeds above 1, never `kino speed`: the installed Kinocut 1.16.1 implementation uses setpts without a frame-rate step and does not land exact output frames.
 
 ## Output
 

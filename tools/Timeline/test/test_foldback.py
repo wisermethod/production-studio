@@ -222,6 +222,22 @@ class PreservationTests(unittest.TestCase):
         for step in clip_steps:
             self.assertIn('trim=start_frame=', step['arguments'][step['arguments'].index('-vf') + 1])
 
+    def test_untagged_source_frames_unchanged(self):
+        # A source with no colour tags at all, range included, is taken as BT.709 TV range and cut unconverted.
+        source = self.root / 'untagged.mp4'
+        expression = "nullsrc=s=96x64:r=30,geq=lum='16+mod(N*31+X*13+Y*7,220)':cb=128:cr=128"
+        ffmpeg(['-f', 'lavfi', '-i', expression, '-frames:v', '40', '-an', '-c:v', 'libx264', '-qp', '0', '-pix_fmt', 'yuv420p', str(source)])
+        data = plans.probe(source, Runner(), self.root, 'ffprobe')
+        self.assertNotIn('color_range', data['streams'][0])
+        value = plan('untagged.mp4')
+        value['segments'] = [dict(value['segments'][0], id='slow', start=2, end=14), dict(value['segments'][0], id='fast', start=14, end=38, speed=2)]
+        output = self.root / 'untagged-cut'
+        result = call(['render', '--plan', str(save(self.root, value)), '--output', str(output)])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        original = frames(source)
+        self.assertEqual(frames(output / 'cut.mp4'), original[2:14] + original[14:38:2])
+        self.assertEqual(json.loads(result.stdout)['assumed_bt709'], ['a'])
+
     def test_wrong_frame_withholds_output(self):
         path = save(self.root, plan('base.mp4'))
         output = self.root / 'wrong-frame'

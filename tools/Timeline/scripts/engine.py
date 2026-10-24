@@ -124,7 +124,9 @@ def render(tool, plan_path, plan, sources, info, output, cache, runner, programs
             length = (segment["end"] - segment["start"]) // segment["speed"]
             lengths.append(length)
             clip = work / ("clip-%d.mp4" % index)
-            vf = "trim=start_frame=%d:end_frame=%d" % (segment["start"], segment["end"])
+            # Declare the frames BT.709 TV range, as an untagged source is taken to be, so FFmpeg converts nothing.
+            vf = "setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709,trim=start_frame=%d:end_frame=%d" % (
+                segment["start"], segment["end"])
             if segment["speed"] > 1:
                 vf += ",select=not(mod(n\\,%d))" % segment["speed"]
             vf += ",setpts=N/(%d*TB)" % plan["fps"]
