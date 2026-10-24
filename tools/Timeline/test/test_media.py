@@ -13,7 +13,7 @@ from processes import Runner
 from paths import TimelineError
 
 
-@unittest.skipIf(sys.version_info < (3, 11), "render requires Python 3.11 or newer")
+@unittest.skipIf(not (3, 11) <= sys.version_info[:2] <= (3, 13), "render requires Python 3.11 to 3.13 only")
 @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg and ffprobe are required for generated media")
 class MediaRefusalTests(unittest.TestCase):
     @classmethod
@@ -56,8 +56,8 @@ class MediaRefusalTests(unittest.TestCase):
 
     def test_vfr_timestamps_with_matching_rates(self):
         data = plans.probe(self.root / "a.mp4", Runner(), self.root, "ffprobe")
-        frames = [f for f in data["frames"] if f.get("media_type") == "video"]
-        frames[2]["best_effort_timestamp"] += 1
+        packets = [p for p in data["packets"] if p.get("codec_type") == "video"]
+        packets[2]["pts"] += 1
         with self.assertRaisesRegex(TimelineError, "variable frame rate"):
             plans.media_info(data, "planted", 30)
 

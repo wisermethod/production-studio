@@ -11,7 +11,7 @@ from processes import Runner
 import plan as plans
 
 TOOL = Path(__file__).resolve().parents[1]
-PYTHON_CHECK = "python3 -c 'import sys; print(sys.version.split()[0]); sys.exit(sys.version_info < (3, 11))'"
+PYTHON_CHECK = "python3 -c 'import sys; print(sys.version.split()[0]); sys.exit(not (3, 11) <= sys.version_info[:2] <= (3, 13))'"
 USAGE = """Timeline 0.1.0
 Usage (from the tool directory):
   python3 scripts/timeline.py help
@@ -21,7 +21,10 @@ Usage (from the tool directory):
 Commands:
   help      Print usage before dependency checks (Python 3.9 or newer).
   check     Read-only survey; one JSON object, never installs.
-  render    Cut a validated silent recording plan (Python 3.11 or newer).
+  render    Cut a validated silent recording plan (Python 3.11 to 3.13 only).
+            Kinocut needs 3.11+; OpenTimelineIO 0.18.1 has wheels through 3.13
+            on Apple Silicon macOS, Linux x86_64/aarch64 and Windows,
+            with none for Python 3.14 or Intel Macs.
 Flags:
   --help          Top-level alias for help; no other arguments.
   --plan <path>   Required for render; absolute JSON plan path.
@@ -95,13 +98,13 @@ def main(argv=None):
         if command == "check":
             deps = programs(runner, Path.cwd())
             cache = install.state(TOOL)
-            supported = sys.version_info >= (3, 11)
+            supported = (3, 11) <= sys.version_info[:2] <= (3, 13)
             print(json.dumps({"python": {"version": sys.version.split()[0], "supported": supported},
                               "programs": deps, **cache,
                               "ok": supported and bool(deps["ffmpeg"] and deps["ffprobe"] and deps["ffmpeg_libx264"]) and cache["state"] == "complete"}))
             return 0
-        if sys.version_info < (3, 11):
-            raise TimelineError("render requires Python 3.11 or newer; check with " + PYTHON_CHECK)
+        if not (3, 11) <= sys.version_info[:2] <= (3, 13):
+            raise TimelineError("render refuses Python " + sys.version.split()[0] + "; requires Python 3.11 to 3.13 only; check with " + PYTHON_CHECK)
         plan_path = screen(options["--plan"], "--plan", TOOL)
         output = screen(options["--output"], "--output", TOOL, destination=True)
         plan, sources = plans.load(plan_path, TOOL)

@@ -2,9 +2,9 @@
 
 This tool installs its 35 pinned runtime packages into interpreter-specific Python virtual environments inside its own `.venv/`, on an authorized render under `wiser/tools/RUNNING.md`. **This repository redistributes none of these packages.** It downloads no models, fonts or compositions.
 
-**Installed Python 3.11.15 environment metadata inspected 2026-10-24 on macOS arm64, read independently with Python 3.11.15 and Python 3.14.7.** Versions below are the installed distributions matching requirements.txt. Licence labels come from their own License-Expression or License fields, falling back to their licence classifiers where stated. Declared licence files in the installed distributions remain the complete notices.
+**Installed Python 3.11.15 environment metadata inspected 2026-10-24 on macOS arm64, read with Python 3.11.15.** Versions below are the installed distributions matching requirements.txt. Licence labels come from their own License-Expression or License fields, falling back to their licence classifiers where stated. Declared licence files in the installed distributions remain the complete notices.
 
-**Python 3.14.7 was also tested on 2026-10-24.** Its wheels-only install could not resolve OpenTimelineIO 0.18.1, reporting no matching distribution. No runtime distribution was installed in that interpreter's environment, so no native Python 3.14 runtime snapshot is available. That interpreter also read the 35 distributions' metadata in the Python 3.11 environment; all versions and licence fields matched the first reading. This is a metadata comparison, not evidence of Python 3.14 binary compatibility.
+Kinocut 1.16.1 requires Python 3.11 or newer. OpenTimelineIO 0.18.1 provides binary wheels for Python 3.9 to 3.13 on Apple Silicon macOS, Linux x86_64 and aarch64, and Windows; it provides none for Python 3.14 or Intel Macs. The supported render range is therefore Python 3.11 to 3.13 only, on those wheel platforms.
 
 | Package | Python 3.11.15 installed version | Licence stated by installed metadata |
 |---------|---------------------------------|--------------------------------------|
@@ -44,7 +44,7 @@ This tool installs its 35 pinned runtime packages into interpreter-specific Pyth
 | `typing-extensions` | 4.16.0 | PSF-2.0 |
 | `uvicorn` | 0.54.0 | BSD-3-Clause |
 
-pip and setuptools are environment bootstrap packages, not runtime pins. The inspected Python 3.11.15 environment holds pip 24.0 and setuptools 79.0.1; the incomplete Python 3.14.7 environment holds pip 26.2.1 and no setuptools. pip 24.0 states MIT in License; pip 26.2.1 states MIT in License-Expression. setuptools 79.0.1 has no licence field or classifier; its declared LICENSE contains the MIT permission text. No package content or licence file is copied into this repository.
+pip and setuptools are environment bootstrap packages, not runtime pins. The inspected Python 3.11.15 environment holds pip 24.0 and setuptools 79.0.1. pip 24.0 states MIT in License. setuptools 79.0.1 has no licence field or classifier; its declared LICENSE contains the MIT permission text. No package content or licence file is copied into this repository.
 
 ## System programs, none installed by this tool
 

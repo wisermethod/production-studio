@@ -2,6 +2,7 @@
 import importlib.metadata
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import sys
@@ -10,7 +11,7 @@ from fractions import Fraction
 from paths import TimelineError, screen
 from plan import media_info, probe
 from processes import child_env, digest, run_kinocut
-from profile import ENCODE_ARGS
+from encoding import ENCODE_ARGS
 
 
 def dump(path, value):
@@ -50,6 +51,54 @@ def verify_output(data, expected, fps):
     return info
 
 
+def frame_hashes(path, size, runner, work, ffmpeg):
+    """Decode once without scaling; retain each frame's size and MD5."""
+    result = runner.run([ffmpeg, "-v", "info", "-xerror", "-nostdin", "-protocol_whitelist", "file,pipe",
+                         "-i", str(path), "-map", "0:v:0", "-an", "-fps_mode", "passthrough",
+                         "-vf", "showinfo=checksum=0", "-noautoscale", "-c:v", "rawvideo", "-pix_fmt", "yuv420p", "-f", "framemd5", "-"],
+                        work, reads=[path], env=child_env(work), check=False)
+    dimensions = re.findall(r"\[Parsed_showinfo_\d+ @ [^\]]+\]\s+n:\s*\d+[^\r\n]*?\bs:(\d+)x(\d+)",
+                            result.stderr.decode("utf-8", errors="replace"))
+    if any([int(w), int(h)] != size for w, h in dimensions):
+        raise TimelineError("frame size changes in " + path.name + "; output withheld, supply fixed-size yuv420p media")
+    if result.returncode:
+        raise TimelineError("frame decode failed for " + path.name + "; output withheld, check the recording and FFmpeg")
+    frames = []
+    try:
+        for line in result.stdout.decode("ascii").splitlines():
+            if not line or line.startswith("#"):
+                continue
+            fields = [field.strip() for field in line.split(",")]
+            if len(fields) != 6 or len(fields[5]) != 32:
+                raise ValueError()
+            frames.append((int(fields[4]), fields[5]))
+    except (ValueError, UnicodeError):
+        raise TimelineError("unreadable frame hashes; output withheld, check FFmpeg") from None
+    expected_size = size[0] * size[1] * 3 // 2
+    if any(length != expected_size for length, _ in frames):
+        raise TimelineError("frame size changes in " + path.name + "; output withheld, supply fixed-size yuv420p media")
+    if len(dimensions) != len(frames):
+        raise TimelineError("unreadable frame hashes; output withheld, check FFmpeg")
+    return frames
+
+
+def compare_frames(plan, sources, info, final, runner, work, ffmpeg):
+    originals = {key: frame_hashes(path, info[key]["size"], runner, work, ffmpeg) for key, path in sources.items()}
+    output = frame_hashes(final, next(iter(info.values()))["size"], runner, work, ffmpeg)
+    position = 0
+    for segment in plan["segments"]:
+        for source_frame in range(segment["start"], segment["end"], segment["speed"]):
+            source = originals[segment["source"]]
+            if position >= len(output) or source_frame >= len(source) or output[position] != source[source_frame]:
+                raise TimelineError("frame mismatch at segment " + segment["id"] + ", output frame " + str(position) +
+                                    ", source frame " + str(source_frame) +
+                                    "; output withheld, check the source and frame selection")
+            position += 1
+    if position != len(output):
+        raise TimelineError("output frame count differs from plan; output withheld, check frame selection")
+    return {"frames_compared": position, "all_equal": True}
+
+
 def render(tool, plan_path, plan, sources, info, output, cache, runner, programs):
     work = Path(tempfile.mkdtemp(prefix=".timeline-work-", dir=str(output.parent)))
     try:
@@ -69,31 +118,27 @@ def render(tool, plan_path, plan, sources, info, output, cache, runner, programs
             linked[key] = target
             source_records.append({"id": key, "path": str(source), "sha256": digest(source), **info[key],
                                    "staged": target.name, "staging": method})
-        cut_sources = [{"id": "source%d" % i, "path": p.name} for i, p in enumerate(linked.values())]
-        source_keys = {key: "source%d" % i for i, key in enumerate(linked)}
-        ops, lengths, passes, sped_files = [], [], [], []
+        cut_sources = []
+        ops, lengths, passes, clips = [], [], [], []
         for index, segment in enumerate(plan["segments"]):
             length = (segment["end"] - segment["start"]) // segment["speed"]
             lengths.append(length)
-            src = source_keys[segment["source"]]
-            start = float(Fraction(segment["start"], plan["fps"]))
-            if segment["speed"] != 1:
-                fast = work / ("sped-%d.mp4" % index)
-                # Select by decoded frame number, then create timestamps anew.
-                vf = "trim=start_frame=%d:end_frame=%d,select=not(mod(n\\,%d)),setpts=N/(%d*TB)" % (
-                    segment["start"], segment["end"], segment["speed"], plan["fps"])
-                runner.run([programs["ffmpeg"], "-v", "error", "-nostdin", "-protocol_whitelist", "file,pipe", "-i", str(linked[segment["source"]]),
-                            "-map", "0:v:0", "-an", "-vf", vf,
-                            "-fps_mode", "passthrough", *ENCODE_ARGS, "-movflags", "+faststart+write_colr", str(fast)],
-                           work, reads=[linked[segment["source"]]], writes=[fast], env=child_env(work))
-                verify_output(probe(fast, runner, work, programs["ffprobe"]), length, plan["fps"])
-                src = "fast%d" % index
-                cut_sources.append({"id": src, "path": fast.name})
-                sped_files.append(fast)
-                start = 0
-            ops.append({"id": "segment%d" % index, "op": "trim", "src": src, "start": start,
+            clip = work / ("clip-%d.mp4" % index)
+            vf = "trim=start_frame=%d:end_frame=%d" % (segment["start"], segment["end"])
+            if segment["speed"] > 1:
+                vf += ",select=not(mod(n\\,%d))" % segment["speed"]
+            vf += ",setpts=N/(%d*TB)" % plan["fps"]
+            runner.run([programs["ffmpeg"], "-v", "error", "-nostdin", "-protocol_whitelist", "file,pipe", "-i", str(linked[segment["source"]]),
+                        "-map", "0:v:0", "-an", "-vf", vf,
+                        "-fps_mode", "passthrough", *ENCODE_ARGS, "-movflags", "+faststart+write_colr", str(clip)],
+                       work, reads=[linked[segment["source"]]], writes=[clip], env=child_env(work))
+            verify_output(probe(clip, runner, work, programs["ffprobe"]), length, plan["fps"])
+            src = "clip%d" % index
+            cut_sources.append({"id": src, "path": clip.name})
+            clips.append(clip)
+            ops.append({"id": "segment%d" % index, "op": "trim", "src": src, "start": 0,
                         "duration": float(Fraction(length, plan["fps"]))})
-            passes.append({"id": segment["id"], "encode_passes": 1 if segment["speed"] == 1 else 2,
+            passes.append({"id": segment["id"], "encode_passes": 2,
                            "lossy_encodes": 0})
         ops.append({"id": "merge", "op": "merge", "srcs": ["segment%d" % i for i in range(len(lengths))]})
         cutfile = work / "cutfile.json"
@@ -102,7 +147,7 @@ def render(tool, plan_path, plan, sources, info, output, cache, runner, programs
         receipt = stage / "kinocut-receipt.json"
         run_kinocut([str(cache / "bin/python3"), "-B", str(tool / "scripts/kino_bridge.py"),
                      str(cutfile), str(raw), str(receipt)], work, runner,
-                    reads=[cutfile, *linked.values(), *sped_files, tool / "scripts/kino_bridge.py", tool / "scripts/profile.py"],
+                    reads=[cutfile, *clips, tool / "scripts/kino_bridge.py", tool / "scripts/encoding.py"],
                     writes=[raw, receipt])
         kino_receipt = json.loads(receipt.read_text())
         if kino_receipt.get("status") != "completed":
@@ -114,6 +159,7 @@ def render(tool, plan_path, plan, sources, info, output, cache, runner, programs
                     "-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709", "-color_range", "tv",
                     "-movflags", "+faststart+write_colr", str(final)], work, reads=[raw], writes=[final], env=child_env(work))
         output_info = verify_output(probe(final, runner, work, programs["ffprobe"]), sum(lengths), plan["fps"])
+        comparison = compare_frames(plan, linked, info, final, runner, work, programs["ffmpeg"])
         otio = stage / "cut.otio"
         write_otio(plan, sources, info, otio)
         hashes = {name: digest(stage / name) for name in ("cut.mp4", "cut.otio", "kinocut-receipt.json")}
@@ -121,7 +167,7 @@ def render(tool, plan_path, plan, sources, info, output, cache, runner, programs
                   "sources": source_records, "segments": passes, "encoding_arguments": ENCODE_ARGS,
                   "versions": {"python": sys.version.split()[0], "kinocut": importlib.metadata.version("kinocut"),
                                "opentimelineio": importlib.metadata.version("OpenTimelineIO"), "ffmpeg": programs["ffmpeg_version"]},
-                  "processes": runner.relative_records(work, output),
+                  "processes": runner.relative_records(work, output, tool), "frame_comparison": comparison,
                   "path_base": {"work": "removed hidden sibling", "output": str(output)},
                   "cutfile": {"sha256": digest(cutfile), "contents": json.loads(cutfile.read_text())},
                   "files": hashes, "output": {**output_info, "sha256": hashes["cut.mp4"]}}

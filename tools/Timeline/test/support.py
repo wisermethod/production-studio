@@ -11,9 +11,9 @@ TOOL = Path(__file__).resolve().parents[1]
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(TOOL / "scripts"))
 import install
-from profile import ENCODE_ARGS
+from encoding import ENCODE_ARGS
 
-READY = sys.version_info >= (3, 11) and install.state(TOOL)["state"] == "complete"
+READY = (3, 11) <= sys.version_info[:2] <= (3, 13) and install.state(TOOL)["state"] == "complete"
 REASON = "this interpreter's tool-local .venv lacks all pinned packages; run an authorized render --install"
 
 

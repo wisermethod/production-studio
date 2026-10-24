@@ -49,6 +49,8 @@ def load(path, tool):
     for key in ("sources", "segments"):
         if not isinstance(plan[key], list) or not plan[key]:
             raise TimelineError(key + " must be a nonempty list; supply the plan entries")
+    if len(plan["segments"]) > 63:
+        raise TimelineError("plan has more than 63 segments; use at most 63 trims plus one Kinocut merge")
     ids, source_ids, sources = set(), set(), {}
     for source in plan["sources"]:
         fields(source, ("id", "path"), "source")
@@ -76,8 +78,8 @@ def load(path, tool):
 
 
 def probe(path, runner, cwd, ffprobe):
-    result = runner.run([ffprobe, "-v", "error", "-protocol_whitelist", "file,pipe", "-show_streams", "-show_format", "-show_frames",
-                         "-show_entries", "stream=index,codec_type,codec_name,width,height,pix_fmt,r_frame_rate,avg_frame_rate,time_base,color_space,color_transfer,color_primaries,color_range:frame=media_type,stream_index,best_effort_timestamp,width,height:format=duration",
+    result = runner.run([ffprobe, "-v", "error", "-protocol_whitelist", "file,pipe", "-show_streams", "-show_format", "-show_packets",
+                         "-show_entries", "stream=index,codec_type,codec_name,width,height,pix_fmt,r_frame_rate,avg_frame_rate,time_base,color_space,color_transfer,color_primaries,color_range:stream_side_data=rotation,displaymatrix:packet=codec_type,stream_index,pts:format=duration",
                          "-of", "json", str(path)], cwd, reads=[path])
     try:
         return json.loads(result.stdout)
@@ -94,21 +96,31 @@ def media_info(data, source_id, fps):
     if len(videos) != 1:
         raise TimelineError(label + " must have one video stream; supply one constant-rate recording")
     video = videos[0]
+    if video.get("pix_fmt") != "yuv420p":
+        raise TimelineError(label + " pixel format " + str(video.get("pix_fmt", "unknown")) + " is not yuv420p; supply yuv420p media")
+    if video.get("color_range") == "pc":
+        raise TimelineError(label + " color_range pc is full range; supply TV-range media")
+    for side in video.get("side_data_list", []):
+        if "rotation" in side or "displaymatrix" in side:
+            try:
+                zero = Fraction(str(side["rotation"])) == 0
+            except (KeyError, ValueError, ZeroDivisionError):
+                zero = False
+            if not zero:
+                raise TimelineError(label + " has nonzero or unreadable rotation/display matrix; supply unrotated media")
     try:
         rate = Fraction(video["r_frame_rate"])
         average = Fraction(video["avg_frame_rate"])
         base = Fraction(video["time_base"])
-        frames = [f for f in data["frames"] if f.get("media_type") == "video"]
-        ticks = [int(f["best_effort_timestamp"]) for f in frames]
-        if not frames:
+        packets = [p for p in data["packets"] if p.get("codec_type") == "video" and p.get("stream_index") == video["index"]]
+        ticks = sorted(int(p["pts"]) for p in packets)
+        if not packets:
             raise ValueError()
         if rate != fps or average != fps:
             raise TimelineError(label + " rate differs from fps or is variable; supply constant-rate media at plan fps")
         if any((b - a) * base != Fraction(1, fps) for a, b in zip(ticks, ticks[1:])):
             raise TimelineError(label + " is variable frame rate; supply constant-rate media at plan fps")
         size = [int(video["width"]), int(video["height"])]
-        if any([f.get("width"), f.get("height")] != size for f in frames):
-            raise TimelineError(label + " frame size changes; supply a fixed-size recording")
         if any(n <= 0 or n % 2 for n in size):
             raise TimelineError(label + " size must be positive and even for yuv420p; supply even dimensions")
     except (KeyError, TypeError, ValueError, ZeroDivisionError):
@@ -117,8 +129,8 @@ def media_info(data, source_id, fps):
     for key in ("color_primaries", "color_transfer", "color_space"):
         if tags[key] not in ("bt709", "unknown", "unspecified", None):
             raise TimelineError(label + " " + key + " is not BT.709; supply BT.709 or untagged media")
-    return {"frames": len(frames), "size": size, "rate": str(rate), "tags": tags,
-            "assumed_bt709": any(tags[k] != "bt709" for k in ("color_primaries", "color_transfer", "color_space")),
+    return {"frames": len(packets), "size": size, "rate": str(rate), "tags": tags,
+            "assumed_bt709": any(tags[k] != "bt709" for k in ("color_primaries", "color_transfer", "color_space")) or tags["color_range"] in ("unknown", "unspecified", None),
             "duration": float(data["format"]["duration"])}
 
 

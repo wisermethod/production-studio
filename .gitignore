@@ -8,3 +8,4 @@ infrastructure/release/dist/
 .stversions/
 tools/*/.venv/
 /.wiser-consent
+__pycache__/

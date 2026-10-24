@@ -30,7 +30,20 @@ class ContractTests(unittest.TestCase):
     def test_python39_help(self):
         for path in (TOOL / "scripts").glob("*.py"):
             ast.parse(path.read_text(), feature_version=(3, 9))
-        result = call(["help"], python="/usr/bin/python3")
+        candidates = [shutil.which("python3.9"), sys.executable, shutil.which("python3"), "/usr/bin/python3"]
+        interpreter = None
+        for candidate in candidates:
+            if candidate and Path(candidate).is_file():
+                try:
+                    version = subprocess.run([candidate, "-B", "-c", "import sys; print(\"%d.%d\" % sys.version_info[:2])"], capture_output=True, text=True)
+                except OSError:
+                    continue
+                if version.returncode == 0 and version.stdout.strip() == "3.9":
+                    interpreter = candidate
+                    break
+        if interpreter is None:
+            self.skipTest("no interpreter reporting Python 3.9 is available; help compatibility cannot be executed")
+        result = call(["help"], python=interpreter)
         self.assertEqual(result.returncode, 0)
         self.assertIn("Timeline 0.1.0", result.stdout)
 
@@ -80,7 +93,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual((status, out.getvalue()), (1, ""))
         self.assertIn(timeline.PYTHON_CHECK, err.getvalue())
 
-    @unittest.skipIf(sys.version_info < (3, 11), "render requires Python 3.11 or newer")
+    @unittest.skipIf(not (3, 11) <= sys.version_info[:2] <= (3, 13), "render requires Python 3.11 to 3.13 only")
     def test_missing_system_dependency(self):
         for absent in ("ffmpeg", "ffprobe", "libx264"):
             with self.subTest(absent=absent), temporary() as d:
@@ -267,7 +280,7 @@ class SchemaTests(unittest.TestCase):
             p = save(root, value)
             with self.assertRaisesRegex(TimelineError, message):
                 plans.load(p, TOOL)
-            if sys.version_info < (3, 11):
+            if not (3, 11) <= sys.version_info[:2] <= (3, 13):
                 return
             before = sorted(root.iterdir())
             result = call(["render", "--plan", str(p), "--output", str(root / "out"), "--install"])
