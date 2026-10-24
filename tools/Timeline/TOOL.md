@@ -7,6 +7,7 @@ version: 0.1.0
 gaps:
   - Cutting a recording that carries audio
   - Slowing a segment down or changing its speed by other than a whole number
+  - Cutting a segment longer than 18,000 output frames
 ---
 
 # Timeline
@@ -23,7 +24,7 @@ Classifier seam: none.
 
 Keep the requested cut and destination in `<cut_request>` and the supplied plan and recordings in `<source_material>`. Is the intended source, frame range or destination ambiguous? Yes: ask before running render. No: use the supplied plan.
 
-Pass an absolute JSON plan path and a new absolute output directory whose parent already exists. Source paths may be absolute or relative to the plan's directory. Every path is screened and its resolved value used. The screen refuses private configuration filenames and a directory named `memory` by resolved spelling, including symbolic links to them; a hard link retains no other name for that check. Credential storage is also screened by device and inode, including hard links to its files. An output resolving inside this tool is refused. Sources must have one fixed-size video stream, no audio stream, a constant rate exactly equal to the plan's positive integer fps, and matching dimensions across sources. Dimensions must be even for yuv420p. A declared primaries, transfer or matrix tag must be BT.709; absent or unknown fields are taken as BT.709 and reported by source id. Only pixel format `yuv420p` is accepted. Full range (`color_range=pc`) and nonzero rotation or display matrices are refused. Absent range is taken as TV range and reported with the BT.709 assumption; source tags are recorded as read.
+Pass an absolute JSON plan path and a new absolute output directory whose parent already exists. Source paths may be absolute or relative to the plan's directory. Every path is screened and its resolved value used. The screen refuses private configuration filenames and a directory named `memory` by resolved spelling, including symbolic links to them; a hard link retains no other name for that check. Credential storage is also screened by device and inode, including hard links to its files. An output resolving inside this tool is refused. Sources must have one fixed-size video stream, no audio stream, a constant rate exactly equal to the plan's positive integer fps, and matching dimensions across sources. Dimensions must be even for yuv420p. A declared primaries, transfer or matrix tag must be BT.709; absent or unknown fields are taken as BT.709 and reported by source id. Only pixel format `yuv420p` is accepted. Full range (`color_range=pc`) is refused, and so is any display matrix other than the identity: a rotation, and a flip, which reads as rotation 0. Decodes never apply a display matrix (`-noautorotate`), so the frame check compares the stored samples. Absent range is taken as TV range and reported with the BT.709 assumption; source tags are recorded as read.
 
 ## Quick Start
 
@@ -53,9 +54,9 @@ Python is the declared interpreter under `wiser/standards/script-contract.md` Ru
 | FFmpeg with libx264 | Frame selection, H.264 encoding, Kinocut operations and tag remux | `ffmpeg -hide_banner -encoders` lists `libx264` |
 | ffprobe, supplied with FFmpeg | Source validation and output readback | `ffprobe -version` succeeds |
 
-`check` reports Python's version and whether it is 3.11 to 3.13, FFmpeg and ffprobe paths and versions, FFmpeg's libx264 availability, and all 35 package pins in this interpreter's environment. It does no install and writes no consent marker. Package state is `absent`, `incomplete` or `complete`.
+`check` reports Python's version and whether it is 3.11 to 3.13, the platform and whether it has the pinned wheels, FFmpeg and ffprobe paths and versions, FFmpeg's libx264 availability, and all 35 package pins in this interpreter's environment. It does no install and writes no consent marker. Package state is `absent`, `incomplete` or `complete`.
 
-Kinocut 1.16.1 requires Python 3.11 or newer. OpenTimelineIO 0.18.1 provides binary wheels for Python 3.9 to 3.13 on Apple Silicon macOS, Linux x86_64 and aarch64, and Windows; it provides none for Python 3.14 or Intel Macs. The supported render range is therefore Python 3.11 to 3.13 only, on those wheel platforms.
+Kinocut 1.16.1 requires Python 3.11 or newer. OpenTimelineIO 0.18.1 provides binary wheels for Python 3.9 to 3.13 on Apple Silicon macOS, Linux x86_64 and aarch64, and Windows; it provides none for Python 3.14 or Intel Macs. The supported render range is therefore Python 3.11 to 3.13 only, on those wheel platforms; on macOS that means an arm64 Python, and render and check refuse an Intel or Rosetta Python by its machine name before any work.
 
 ## Configuration
 
@@ -95,7 +96,7 @@ Prefix commands with `python3 scripts/timeline.py`, using the interpreter decisi
 }
 ```
 
-These are exactly the required keys at each level. Unknown and duplicate JSON keys are refused by name. `sources` and `segments` are nonempty lists. At most 63 segments are accepted: one Kinocut trim per segment plus the merge fits its 64-step workflow limit. Ids are unique across both lists and use only lowercase ASCII letters, digits and hyphens. Every segment names a declared source. `fps`, `start`, `end` and `speed` are integers, never booleans or numeric strings. `fps` is positive. `0 <= start < end <= source frame count`, with `end` exclusive. `speed >= 1`, and `end - start` must be divisible by speed. Segments may reuse or overlap a source. List order is cut order.
+These are exactly the required keys at each level. Unknown and duplicate JSON keys are refused by name. `sources` and `segments` are nonempty lists. At most 63 segments are accepted: one Kinocut trim per segment plus the merge fits its 64-step workflow limit. A segment gives at most 18,000 output frames, ten minutes at 30 fps, so its Kinocut trim stays well inside Kinocut 1.16.1's 600-second limit per FFmpeg step; split a longer one. Ids are unique across both lists and use only lowercase ASCII letters, digits and hyphens. Every segment names a declared source. `fps`, `start`, `end` and `speed` are integers, never booleans or numeric strings. `fps` is positive. `0 <= start < end <= source frame count`, with `end` exclusive. `speed >= 1`, and `end - start` must be divisible by speed. Segments may reuse or overlap a source. List order is cut order.
 
 A segment contributes `(end - start) / speed` frames. Its output frame `j` comes from source frame `start + j * speed`. Every segment first declares its frames BT.709 at TV range with FFmpeg `setparams`, so a source taken as BT.709 is not converted, then uses `trim=start_frame:end_frame` and new timestamps, with frame-number `select` added for speeds above 1, never `kino speed`: the installed Kinocut 1.16.1 implementation uses setpts without a frame-rate step and does not land exact output frames.
 
@@ -141,7 +142,9 @@ This tool follows `wiser/standards/script-contract.md`. What a person meets at i
 | `[id] must use lowercase letters, digits and hyphens`, `duplicate id [name]`, `segment.source is unknown` | Invalid id or reference | Use unique ids and a declared source |
 | `segment [id] is empty or reversed`, `segment [id] length is not divisible by speed`, `segment [id] is outside its source` | Invalid frame interval | Correct the exclusive end, start or whole-number speed |
 | `plan has more than 63 segments` | Kinocut allows 64 workflow steps including the merge | Supply at most 63 segments |
-| `source [id] pixel format [format] is not yuv420p`, `source [id] color_range pc is full range`, `source [id] has nonzero or unreadable rotation/display matrix` | Conversion or rotation would break exact frame preservation | Supply unrotated TV-range yuv420p media |
+| `segment [id] has more output frames than the at most 18000` | One segment's trim would risk Kinocut's 600-second limit per FFmpeg step | Split it into shorter segments |
+| `render refuses a [machine] Python on macOS` | An Intel or Rosetta Python, for which OpenTimelineIO 0.18.1 has no wheel | Run an arm64 Python 3.11 to 3.13 |
+| `source [id] pixel format [format] is not yuv420p`, `source [id] color_range pc is full range`, `source [id] has a rotation, flip or unreadable display matrix` | Conversion, rotation or a flip would break exact frame preservation | Supply unrotated, unflipped TV-range yuv420p media |
 | `source [id] has an audio stream` | Recording carries audio | Supply a silent recording; this version does not cut audio |
 | `source [id] must have one video stream`, `source [id] has unreadable frame metadata` | Unsupported or unreadable recording | Supply one readable constant-rate video stream |
 | `source [id] rate differs from fps or is variable`, `source [id] is variable frame rate` | Rate or timestamps violate fps | Supply constant-rate media at the plan's rate |

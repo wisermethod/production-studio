@@ -20,6 +20,39 @@ from processes import Runner, probe_env, run_kinocut
 
 
 class BoundaryTests(unittest.TestCase):
+    def test_segment_output_frame_bound(self):
+        with temporary() as d:
+            root = Path(d)
+            (root / 'a.mp4').write_bytes(b'')
+            for end, speed, ok in ((18001, 1, False), (36002, 2, False), (36000, 2, True), (18000, 1, True)):
+                value = plan('a.mp4')
+                value['segments'][0].update(start=0, end=end, speed=speed)
+                path = save(root, value)
+                if ok:
+                    plans.load(path, TOOL)
+                else:
+                    with self.assertRaisesRegex(TimelineError, 'at most 18000'):
+                        plans.load(path, TOOL)
+
+    def test_intel_mac_refused_before_work(self):
+        with temporary() as d, patch.object(sys, 'platform', 'darwin'), patch('platform.machine', return_value='x86_64'), \
+                patch.object(plans, 'load', side_effect=AssertionError('probed')) as load, patch.object(install, 'ensure') as ensure:
+            root = Path(d)
+            out, err = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                code = timeline.main(['render', '--plan', str(root / 'plan.json'), '--output', str(root / 'out'), '--install'])
+            self.assertEqual((code, out.getvalue()), (1, ''))
+            self.assertIn('arm64', err.getvalue())
+            load.assert_not_called()
+            ensure.assert_not_called()
+            self.assertEqual(list(root.iterdir()), [])
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                self.assertEqual(timeline.main(['check']), 0)
+            report = json.loads(out.getvalue())
+            self.assertFalse(report['platform']['supported'])
+            self.assertFalse(report['ok'])
+
     def test_python_render_range_before_work(self):
         for version in ((3, 10), (3, 14)):
             with self.subTest(version=version), temporary() as d:
@@ -164,14 +197,23 @@ class PacketTests(unittest.TestCase):
     def test_rotation_refused(self):
         target = self.root / 'rotated.mp4'
         ffmpeg(['-display_rotation:v:0', '90', '-i', str(self.root / 'a.mp4'), '-c:v', 'copy', str(target)])
-        self.refused(target, 'rotation/display matrix')
+        self.refused(target, 'display matrix')
+
+    def test_vertical_flip_matrix_refused(self):
+        # A vertical flip is a display matrix whose rotation angle reads 0.
+        target = self.root / 'vflip.mp4'
+        ffmpeg(['-display_vflip', '-i', str(self.root / 'a.mp4'), '-c:v', 'copy', str(target)])
+        side = plans.probe(target, Runner(), self.root, 'ffprobe')['streams'][0]['side_data_list'][0]
+        self.assertEqual(float(side['rotation']), 0.0)
+        self.refused(target, 'display matrix')
 
     def test_zero_rotation_accepted_and_unknown_matrix_refused(self):
         data = plans.probe(self.root / 'a.mp4', Runner(), self.root, 'ffprobe')
-        data['streams'][0]['side_data_list'] = [{'rotation': 0, 'displaymatrix': 'identity'}]
+        identity = '\n00000000:        65536           0           0\n00000001:            0       65536           0\n00000002:            0           0  1073741824\n'
+        data['streams'][0]['side_data_list'] = [{'side_data_type': 'Display Matrix', 'rotation': 0, 'displaymatrix': identity}]
         self.assertEqual(plans.media_info(data, 'a', 30)['frames'], 60)
         data['streams'][0]['side_data_list'] = [{'displaymatrix': 'unreadable'}]
-        with self.assertRaisesRegex(TimelineError, 'rotation/display matrix'):
+        with self.assertRaisesRegex(TimelineError, 'display matrix'):
             plans.media_info(data, 'a', 30)
 
     def test_frame_size_change_withheld(self):
@@ -221,6 +263,18 @@ class PreservationTests(unittest.TestCase):
         self.assertEqual(len(clip_steps), 3)
         for step in clip_steps:
             self.assertIn('trim=start_frame=', step['arguments'][step['arguments'].index('-vf') + 1])
+
+    def test_decodes_do_not_autorotate(self):
+        value = plan('base.mp4')
+        output = self.root / 'noautorotate-cut'
+        result = call(['render', '--plan', str(save(self.root, value)), '--output', str(output)])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        record = json.loads((output / 'record.json').read_text())
+        decoders = [p['arguments'] for p in record['processes'] if Path(p['arguments'][0]).name == 'ffmpeg' and '-i' in p['arguments']
+                    and any(a in p['arguments'] for a in ('framemd5', 'libx264'))]
+        self.assertGreaterEqual(len(decoders), 3)
+        for args in decoders:
+            self.assertIn('-noautorotate', args[:args.index('-i')])
 
     def test_untagged_source_frames_unchanged(self):
         # A source with no colour tags at all, range included, is taken as BT.709 TV range and cut unconverted.

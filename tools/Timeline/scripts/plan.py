@@ -6,6 +6,19 @@ import re
 from paths import TimelineError, screen
 
 
+# One trim per segment runs inside Kinocut 1.16.1's 600-second limit per FFmpeg step (kinocut/limits.py).
+MAX_SEGMENT_FRAMES = 18000
+IDENTITY = [[65536, 0, 0], [0, 65536, 0], [0, 0, 1073741824]]
+
+
+def identity_matrix(text):
+    try:
+        rows = [[int(v) for v in line.split(":", 1)[1].split()] for line in str(text).strip().splitlines()]
+    except (IndexError, ValueError):
+        return False
+    return rows == IDENTITY
+
+
 def unique_object(pairs):
     result = {}
     for key, value in pairs:
@@ -74,6 +87,9 @@ def load(path, tool):
             raise TimelineError("segment " + segment["id"] + " is empty or reversed; use start < end")
         if (segment["end"] - segment["start"]) % segment["speed"]:
             raise TimelineError("segment " + segment["id"] + " length is not divisible by speed; align its end frame")
+        if (segment["end"] - segment["start"]) // segment["speed"] > MAX_SEGMENT_FRAMES:
+            raise TimelineError("segment " + segment["id"] + " has more output frames than the at most 18000 that fit "
+                                "Kinocut's 600-second limit per FFmpeg step; split it into shorter segments")
     return plan, sources
 
 
@@ -101,13 +117,14 @@ def media_info(data, source_id, fps):
     if video.get("color_range") == "pc":
         raise TimelineError(label + " color_range pc is full range; supply TV-range media")
     for side in video.get("side_data_list", []):
-        if "rotation" in side or "displaymatrix" in side:
+        if "rotation" in side or "displaymatrix" in side or "Display" in str(side.get("side_data_type", "")):
+            # A flip reads as rotation 0, so only the identity matrix itself is accepted.
             try:
                 zero = Fraction(str(side["rotation"])) == 0
             except (KeyError, ValueError, ZeroDivisionError):
                 zero = False
-            if not zero:
-                raise TimelineError(label + " has nonzero or unreadable rotation/display matrix; supply unrotated media")
+            if not (zero and identity_matrix(side.get("displaymatrix"))):
+                raise TimelineError(label + " has a rotation, flip or unreadable display matrix; supply unrotated, unflipped media")
     try:
         rate = Fraction(video["r_frame_rate"])
         average = Fraction(video["avg_frame_rate"])

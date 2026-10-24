@@ -4,6 +4,7 @@ import sys
 sys.dont_write_bytecode = True
 import json
 from pathlib import Path
+import platform
 import shutil
 from paths import TimelineError, screen
 import install
@@ -24,7 +25,7 @@ Commands:
   render    Cut a validated silent recording plan (Python 3.11 to 3.13 only).
             Kinocut needs 3.11+; OpenTimelineIO 0.18.1 has wheels through 3.13
             on Apple Silicon macOS, Linux x86_64/aarch64 and Windows,
-            with none for Python 3.14 or Intel Macs.
+            with none for Python 3.14 or Intel Macs; macOS needs an arm64 Python.
 Flags:
   --help          Top-level alias for help; no other arguments.
   --plan <path>   Required for render; absolute JSON plan path.
@@ -35,6 +36,11 @@ Flags:
 No other commands or flags. Flags do not repeat. No account configuration.
 WISER_ALLOW_INSTALL=1 or matching plugin-copy .wiser-consent also authorizes install.
 """
+
+
+def platform_supported():
+    # OpenTimelineIO 0.18.1 publishes macOS wheels for arm64 only; an Intel or Rosetta Python has none.
+    return not (sys.platform == "darwin" and platform.machine() != "arm64")
 
 
 def parse(argv):
@@ -99,12 +105,17 @@ def main(argv=None):
             deps = programs(runner, Path.cwd())
             cache = install.state(TOOL)
             supported = (3, 11) <= sys.version_info[:2] <= (3, 13)
+            machine = platform_supported()
             print(json.dumps({"python": {"version": sys.version.split()[0], "supported": supported},
+                              "platform": {"system": sys.platform, "machine": platform.machine(), "supported": machine},
                               "programs": deps, **cache,
-                              "ok": supported and bool(deps["ffmpeg"] and deps["ffprobe"] and deps["ffmpeg_libx264"]) and cache["state"] == "complete"}))
+                              "ok": supported and machine and bool(deps["ffmpeg"] and deps["ffprobe"] and deps["ffmpeg_libx264"]) and cache["state"] == "complete"}))
             return 0
         if not (3, 11) <= sys.version_info[:2] <= (3, 13):
             raise TimelineError("render refuses Python " + sys.version.split()[0] + "; requires Python 3.11 to 3.13 only; check with " + PYTHON_CHECK)
+        if not platform_supported():
+            raise TimelineError("render refuses a " + platform.machine() + " Python on macOS; OpenTimelineIO 0.18.1 has wheels for "
+                                "Apple Silicon (arm64) Macs only; run an arm64 Python 3.11 to 3.13")
         plan_path = screen(options["--plan"], "--plan", TOOL)
         output = screen(options["--output"], "--output", TOOL, destination=True)
         plan, sources = plans.load(plan_path, TOOL)

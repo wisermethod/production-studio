@@ -54,7 +54,7 @@ def verify_output(data, expected, fps):
 def frame_hashes(path, size, runner, work, ffmpeg):
     """Decode once without scaling; retain each frame's size and MD5."""
     result = runner.run([ffmpeg, "-v", "info", "-xerror", "-nostdin", "-protocol_whitelist", "file,pipe",
-                         "-i", str(path), "-map", "0:v:0", "-an", "-fps_mode", "passthrough",
+                         "-noautorotate", "-i", str(path), "-map", "0:v:0", "-an", "-fps_mode", "passthrough",
                          "-vf", "showinfo=checksum=0", "-noautoscale", "-c:v", "rawvideo", "-pix_fmt", "yuv420p", "-f", "framemd5", "-"],
                         work, reads=[path], env=child_env(work), check=False)
     dimensions = re.findall(r"\[Parsed_showinfo_\d+ @ [^\]]+\]\s+n:\s*\d+[^\r\n]*?\bs:(\d+)x(\d+)",
@@ -130,7 +130,8 @@ def render(tool, plan_path, plan, sources, info, output, cache, runner, programs
             if segment["speed"] > 1:
                 vf += ",select=not(mod(n\\,%d))" % segment["speed"]
             vf += ",setpts=N/(%d*TB)" % plan["fps"]
-            runner.run([programs["ffmpeg"], "-v", "error", "-nostdin", "-protocol_whitelist", "file,pipe", "-i", str(linked[segment["source"]]),
+            runner.run([programs["ffmpeg"], "-v", "error", "-nostdin", "-protocol_whitelist", "file,pipe",
+                        "-noautorotate", "-i", str(linked[segment["source"]]),
                         "-map", "0:v:0", "-an", "-vf", vf,
                         "-fps_mode", "passthrough", *ENCODE_ARGS, "-movflags", "+faststart+write_colr", str(clip)],
                        work, reads=[linked[segment["source"]]], writes=[clip], env=child_env(work))
