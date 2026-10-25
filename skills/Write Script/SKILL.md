@@ -91,7 +91,7 @@ Is a scene's exact narration text within 1 to 5,000 code points, tags and whites
 - Over 5,000: split it into two scenes and count again. On a change, retain its id for the first and give the added scene a new id.
 - Within the limit: keep the text whole in its single-line block.
 
-Count the whole script's narration words by Script format's word rule. Does the brief's target length lie outside the range below by more than a quarter of the target? Yes: name both figures as a draft reason, for the member to change the target or the steps; never write toward the target. No: go on. State the estimates at both 154 and 202 words a minute, the range one voice clone was measured to run at a single setting: for `W` words the range is `W / 202` to `W / 154` minutes. Real timing comes from the narration's audio, not either estimate.
+Count the whole script's narration words by Script format's word rule. Is the brief's length a ceiling, such as "at most seven minutes"? Then it is missed only when the range's low end is over it. Otherwise it is a target, missed when it lies outside the range below by more than a quarter of the target. Missed: name both figures as a draft reason, for the member to change the length or the steps; never write toward it. Not missed: go on. State the estimates at both 154 and 202 words a minute, the range one voice clone was measured to run at a single setting: for `W` words the range is `W / 202` to `W / 154` minutes. Real timing comes from the narration's audio, not either estimate.
 
 ### 5. The eye
 
