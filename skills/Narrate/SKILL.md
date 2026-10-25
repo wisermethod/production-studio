@@ -37,7 +37,7 @@ This skill writes only inside the production folder. `tools/Transcribe Audio/` i
 
 ## Steps
 
-For each scene selected in step 4, finish steps 6 to 8 before starting the next scene. Preserve the supplied order.
+For each scene selected in step 4, finish steps 6 to 8 before starting the next scene; a check-only take runs step 8 alone. Preserve the supplied order.
 
 ### 1. The scenes
 
@@ -81,22 +81,24 @@ Which voice clone is used?
 For each scene, read its current take's record through the `cid` in `narration.json`, where one exists. Does the scene need narration?
 
 - It has a current take with the same text hash and settings, and the production's settings have not changed: keep that take and make no call for the scene.
-- It has no such current take, but a take filed in its folder has that text hash and those settings and no check result, because an earlier run stopped before checking it: make no call; run step 8 on that take.
+- It has no such current take, but a take filed in its folder has that text hash and those settings, because an earlier run stopped before finishing it. Its check passed: make it current, with no call. It has no check result: make no call, and run step 8 on it as a check-only take. Its check failed: narrate the scene.
 - Otherwise, including no current take, a different text hash, or changed settings: narrate it.
 
 ### 5. The cost
 
+Is this session Claude Code, Codex, Grok or Cursor, the apps that can attach the local gateway (`skills/Set Up Connectors/` in `wiser`)? No: stop before any cost question, saying narration needs the local gateway, which this app cannot attach. Yes: go on.
+
 Are there scenes to narrate?
 
-- None: no cost and no call. Go to step 9 and say every scene kept its take.
+- None: no cost and no call. Run step 8 on each check-only take from step 4, then go to step 9 and say every other scene kept its take.
 - One or more: before the first billed call, read Destructive Actions in `connectors/xai/CONNECTOR.md` in `wiser`. Use its stated rate and the date that page says the rate was read. List the selected scenes and each one's code-point count, tags and whitespace included. Show their total multiplied by that rate, converting a per-million rate to a per-code-point rate, and the worst case: every selected scene taken twice, allowing one retake each in step 8. Where settings changed, say every scene is being narrated again and include all of them in these totals.
 
 Has the member approved the worst-case amount?
 
-- `<cost_approval>` carries their approval for this narration at or above that amount: that is their yes; do not ask again.
+- `<cost_approval>` carries their approval for this narration at or above that amount, and this is not a further take sent back from step 8: that is their yes; do not ask again. A further take always asks.
 - No such approval: put both costs, the rate and its read date, and the scenes and counts to the member, and ask whether they approve the worst case. Their yes to it: continue. A yes to less than the worst case: say what it does not cover, and bill nothing until the worst case is approved. No answer: wait. They decline: stop before billing.
 
-The action declares `confirmation: none`, so the gateway does not stop for approval. Make no billed call before the yes above.
+The action declares `confirmation: none`, so the gateway never asks the member about its cost. Make no billed call before the yes above.
 
 ### 6. The call
 
@@ -107,14 +109,16 @@ What did the action return?
 - The file answer: file and check it in steps 7 and 8 before the next call.
 - `local_only`: stop the run. Say narration needs the local gateway, which only a command-line harness can attach, and hand `skills/Set Up Connectors/` in `wiser` a request for the local gateway by name. This answer is returned before anything is sent to xAI and bills nothing.
 - `needs_connect`: stop and hand `skills/Connect Account/` in `wiser` the service `xai` and module `speech` for its own human turn.
+- `needs_confirmation`, from a policy rule of the member's: show the stop to the member. Their yes: send the identical input again with `confirm: true`, which is the same call, not a new take. Anything else: stop the run.
+- `vendor_error` with `reason: output_refused`: no file was written. Report its `detail` and stop the run, opening and moving nothing under the gateway home.
 - Any other status: stop the run, so no later scene is called, and hand the returned status and the gateway route that returned it to `skills/Connection Troubleshooter/` in `wiser`.
 
 ### 7. Filing
 
 Immediately after each file answer, before the next call:
 
-1. Is `file.path` an absolute path, with no `..` part, to a file named `<cid>.mp3`, where `<cid>` is a UUID, sitting directly in a directory named `outputs`? And does `<production>` resolve outside the directory that holds that `outputs` directory, the gateway home? Both: go on. Either not: stop the run, move nothing, and report the path.
-2. Create `<production>/narration/<scene>/` where it is missing. Move, never copy, the one file `file.path` names to `<production>/narration/<scene>/<cid>.mp3`, the `cid` being the call's correlation id. The move fails: stop the run, report the path, and open nothing else under the gateway home; the file stays there until the gateway removes it.
+1. Is `file.path` an absolute path, with no `..` part, to a regular file and not a symbolic link, named `<cid>.mp3`, where `<cid>` is a UUID, sitting directly in a directory named `outputs`? And does `<production>` resolve outside the directory that holds that `outputs` directory, the gateway home? Both: go on. Either not: stop the run, move nothing, and report the path.
+2. Create `<production>/narration/<scene>/` where it is missing. Move the one file `file.path` names, leaving no copy behind, to `<production>/narration/<scene>/<cid>.mp3`, the `cid` being the call's correlation id. The production is often on another volume, where a rename fails: then copy that one file to the scene path, check the copy's byte count and SHA-256 against the answer's, and only then remove that one source file, as `mv` does. The move fails otherwise: stop the run, report the path, and open nothing else under the gateway home; the file stays there until the gateway removes it.
 3. Compute the filed MP3's byte count and SHA-256 again. Do both match `file.bytes` and `file.sha256` in the answer? Yes: continue. Either differs: do not make the take current; stop the run and report both the answer's and the filed file's values.
 4. Write `<production>/narration/<scene>/<cid>.json` with the scene id, `cid`, action id, every input key sent except `text`, the text sent and its SHA-256, the answer's `characters` and `duration`, its `file.bytes` and `file.sha256`, the date filed as `YYYY-MM-DD`, and the answer's word timings. Add the check's result when step 8 gives it.
 
@@ -122,7 +126,7 @@ Open no other path under the gateway home, `outputs/` itself included: no listin
 
 ### 8. The check
 
-Is the take's `language` English: `en`, `eng`, or `en` followed by a subtag such as `en-US`?
+Is the take's `language` English: `en` or `eng`, alone or followed by a subtag such as `en-US` or `eng-GB`, compared without regard to case?
 
 - No, `auto` included: record the check as unchecked, with its language and no transcript. Make the filed take current as described below. Checking a take narrated in a language other than English is this skill's gap; name it in the report. Do not run the English-only transcriber on it.
 - Yes: load `tools/Transcribe Audio/` in `wiser` and transcribe the filed MP3 with model `base`, its absolute path as `--audio`, and `<production>/narration/<scene>/` as `--output`. Omit `--model-cache`. The tool stops for install consent or missing weights: answer it as `AGENTS.md` in `wiser` Behavioral Core says, with `--install` on the same command. FFmpeg is missing: install it as the tool's Dependencies say, then run the command again. Read the body of the transcript file the tool's output names, below its header.
@@ -130,8 +134,9 @@ Is the take's `language` English: `en`, `eng`, or `en` followed by a subtag such
 For an English take, remove complete square-bracket and angle-bracket tags from the scene text for comparison only. Is every sentence present in the transcript and in order, allowing a name's spelling to differ?
 
 - Yes: record pass and the transcript's filename in the take's record. Make this take current.
+- No, and this is a check-only take from step 4: record fail and the transcript's filename, and keep it without making it current. Narrating the scene is a new narration: it goes back through step 5, its cost put to the member.
 - No, and this is the first take for the scene in this run: record fail and the transcript's filename. Keep the take without making it current. Give this scene one retake with the same text and settings, through steps 6 to 8, filed and checked in the same way.
-- No, and this is the retake: record fail and the transcript's filename. Keep both takes without making either current. Stop that scene and give the member both transcripts. A further take of it is a new narration: it goes back through step 5, its cost put to the member again.
+- No, and this is the retake: record fail and the transcript's filename. Keep both takes without making either current. Stop that scene and give the member both transcripts. A further take of it is a new narration: it goes back through step 5, its cost put to the member again, never covered by `<cost_approval>`.
 
 To make a take current, write its `cid` as that scene's current take in `narration.json`. On the first narration, record the production's settings there too; on an approved settings change, update them to those sent. Takes not made current leave the scene's previous current take in place, or no current take where none existed.
 
