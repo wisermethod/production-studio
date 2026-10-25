@@ -83,7 +83,7 @@ Split the teaching into scenes a viewer can follow and a change can touch alone.
 
 ### 4. The ear
 
-Write each scene's narration in the bound `voice`, to be heard. Use `[pause]` where the viewer needs a beat, before a new step or after a result appears; use `<emphasis>…</emphasis>` on the word a line turns on. Never use `[breath]` or any other tag. Keep sentences short enough to say on one breath. Write numbers, symbols, paths and abbreviations as they should be said, while the cue table keeps the screen's words exact.
+Write each scene's narration in the bound `voice`, to be heard. Use `[pause]` where the viewer needs a beat, before a new step or after a result appears; use `<emphasis>…</emphasis>` on the word a line turns on. Never use `[breath]` or any other tag. Keep sentences short enough to say on one breath. Write numbers, symbols, paths and abbreviations as they should be said, while the cue table keeps the screen's words exact. Write only what the steps need: the threshold test in `standards/instruction-quality.md` in `wiser` cuts every sentence that can go without loss, and no sentence is added, or needed step cut, to meet a target length.
 
 Is a scene's exact narration text within 1 to 5,000 code points, tags and whitespace included?
 
@@ -91,7 +91,7 @@ Is a scene's exact narration text within 1 to 5,000 code points, tags and whites
 - Over 5,000: split it into two scenes and count again. On a change, retain its id for the first and give the added scene a new id.
 - Within the limit: keep the text whole in its single-line block.
 
-Count the whole script's narration words by Script format's word rule. Does the brief's target length lie outside the range below by more than a quarter of the target? Yes: name both figures as a draft reason. No: go on. State the estimates at both 154 and 202 words a minute, the range one voice clone was measured to run at a single setting: for `W` words the range is `W / 202` to `W / 154` minutes. Real timing comes from the narration's audio, not either estimate.
+Count the whole script's narration words by Script format's word rule. Does the brief's target length lie outside the range below by more than a quarter of the target? Yes: name both figures as a draft reason, for the member to change the target or the steps; never write toward the target. No: go on. State the estimates at both 154 and 202 words a minute, the range one voice clone was measured to run at a single setting: for `W` words the range is `W / 202` to `W / 154` minutes. Real timing comes from the narration's audio, not either estimate.
 
 ### 5. The eye
 
