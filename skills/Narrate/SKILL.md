@@ -128,19 +128,21 @@ Immediately after each file answer, before the next call:
 
    Do `ffprobe -version` and `ffmpeg -version` both succeed? Yes: continue. No: load Dependencies in `tools/Transcribe Audio/TOOL.md` in `wiser`, install the missing dependency from FFmpeg's own current documentation (`ffprobe` is supplied with FFmpeg), then run its check and the command again. Can both commands run after that? Yes: continue. No: follow Behavioral Core in `AGENTS.md` in `wiser`; write no `delay`, so the take is not made current (step 8), and report the unavailable delay filing. No retake and no call follow from it; a later run finishes the filing with no call (step 4).
 
+   Is this a take filed by an earlier run, reached from step 4 with no call? Compute its MP3's byte count and SHA-256. Do both match the record's `file.bytes` and `file.sha256`? No: write no `delay`, leave the take as it is, name it in step 9, and go on with the next scene; no call follows from it. Yes: go on.
+
    Read the filed MP3's codec, sample rate and first packet:
 
    ```bash
    ffprobe -v error -select_streams a:0 -show_entries stream=codec_name,sample_rate:packet_side_data -show_packets -read_intervals "%+#1" -of json "<production>/narration/<scene>/<cid>.mp3"
    ```
 
-   Which delay does the take carry?
+   Did `ffprobe` exit 0 and report the stream's `codec_name` and `sample_rate`? No: write no `delay`, so a later run tries again, leave the take as it is, and report the error. Yes: which delay does the take carry?
 
    - The stream's `codec_name` is `mp3`, and its first packet's `side_data_list` carries `side_data_type: "Skip Samples"`: keep its `skip_samples` value as the header's stated delay. FFmpeg removes it while decoding, so set `n` to 0 and the basis to `header_skip_samples`.
    - The `codec_name` is `mp3`, no `Skip Samples`, and the file's bytes hold `LAME` followed by a digit, the LAME encoder's signature: set `n` to 1105, LAME's 576 encoder samples and the decoder's 529, which a file without a gapless header does not state. The count is in samples at the take's own sample rate, whatever that rate is; never scale it from another rate. Set the basis to `lame_no_header`.
    - Neither: the delay is unknown. Set `n` to 0 and the basis to `unknown`, write no WAV, and name the take in step 9. Go straight to the record, below.
 
-   Where the delay is known, write the aligned copy beside the MP3. Is there anything at `<production>/narration/<scene>/<cid>.wav`? Yes: the record holds no `delay`, so it is this sub-step's unfinished output for this take, which the MP3 makes again. Name it in the report, remove that one path as a command of its own, then go on. No: go on. Then run the one command that fits, which never overwrites:
+   Where the delay is known, write the aligned copy beside the MP3. Is there anything at `<production>/narration/<scene>/<cid>.wav`? No: go on. A regular file that is not a symbolic link: the record holds no `delay`, so it is this sub-step's unfinished output for this take, which the MP3 makes again. Name it in the report, remove that one file as a command of its own, and confirm it is gone, then go on. Anything else, or the removal fails: write no `delay`, run no `ffmpeg`, leave the take as it is, and report the path. Then run the one command that fits, which never overwrites:
 
    ```bash
    # n greater than 0: replace <n> with it
@@ -149,13 +151,13 @@ Immediately after each file answer, before the next call:
    ffmpeg -n -v error -i "<production>/narration/<scene>/<cid>.mp3" -map_metadata -1 -fflags +bitexact -flags:a +bitexact -c:a pcm_s16le "<production>/narration/<scene>/<cid>.wav"
    ```
 
-   Did `ffmpeg` exit 0, print nothing, and leave a file at `<cid>.wav`? All three are needed, since FFmpeg also exits 0 when it declines to overwrite. No: write no `delay`, so the take is not made current, and report the error; no retake and no call follow from it. Yes: compute the MP3's byte count and SHA-256 again. Do both still match the answer's? No: stop the run, the take not current, and report both values. Yes: the 16-bit PCM WAV keeps the MP3's sample rate, its first sample is xAI's time 0, and the take's word timings sit on it. Read it back:
+   Did `ffmpeg` exit 0, print nothing, and leave a file at `<cid>.wav`? All three are needed, since FFmpeg also exits 0 when it declines to overwrite. No: write no `delay`, so the take is not made current, and report the error; no retake and no call follow from it. Yes: compute the MP3's byte count and SHA-256 again. Do both still match the record's `file.bytes` and `file.sha256`, the answer's? No: stop the run, the take not current, and report both values. Yes: the 16-bit PCM WAV keeps the MP3's sample rate, its first sample is xAI's time 0, and the take's word timings sit on it. Read it back:
 
    ```bash
    ffprobe -v error -select_streams a:0 -show_entries stream=sample_rate,channels,time_base,duration_ts -of json "<production>/narration/<scene>/<cid>.wav"
    ```
 
-   Its sample count is `duration_ts`, counted in the `time_base` of `1/` and its `sample_rate` that a WAV reports. Compute the WAV's byte count and SHA-256.
+   Did it exit 0, with `sample_rate` equal to the MP3 stream's and `time_base` of `1/` and that rate? No: write no `delay`, leave the take as it is, and report what it showed. Yes: the sample count is `duration_ts`. Compute the WAV's byte count and SHA-256.
 
    Add to the take's record `delay`, an object of `samples_removed` (`n`), `sample_rate` (the MP3 stream's rate), `basis` (`header_skip_samples`, `lame_no_header` or `unknown`) and `stated_skip_samples` (the header's stated value, or `null` in the other two cases); and `aligned_file`, an object of `name` (`<cid>.wav`), `bytes`, `sha256` and `sample_count`, from the WAV's read-back, or `null` where the delay is unknown.
 
@@ -191,7 +193,7 @@ Report each scene, narrated or kept, with its current `cid`, duration and check 
 
 ## Success
 
-- Every made take has an MP3 and a matching `<cid>.json` beside it in its scene's narration folder, and a WAV with its encoder delay removed wherever that delay is known. The filed MP3's bytes and SHA-256 match the answer, before and after the WAV is written, and the record carries, in step 7's shape, the sent text and its hash, inputs, call identity, answer metadata, filing date, word timings, check result, `delay` and `aligned_file`. Every current take's record holds `delay`.
+- Every made take has an MP3 and a matching `<cid>.json` beside it in its scene's narration folder, and a WAV with its encoder delay removed wherever that delay is known. The filed MP3's bytes and SHA-256 match the answer, before and after the WAV is written, and the record carries, in step 7's shape, the sent text and its hash, inputs, call identity, answer metadata, filing date, word timings, check result, `delay` and `aligned_file`. Every take made current in this run holds `delay`. An already-current take whose delay filing or check could not finish stays current, is named in the report, and is never a reason to call.
 - `narration.json` holds the production settings and each scene's current `cid`; each current take matches those settings and the supplied text, or the report identifies the scene that stopped and kept its previous take. An unchanged scene kept its current take without a call.
 - Each English take with a completed check has its transcript in its scene folder and pass or fail recorded with that filename. Only a passing English take became current; a non-English take became current explicitly unchecked. Failed takes and their transcripts remain on disk.
 - No filed `cid` remains at its returned source path in `outputs/`, established only at that exact path without listing or opening the directory.
