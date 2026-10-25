@@ -1,6 +1,6 @@
 # Skills
 
-Capabilities a user invokes by name for their output; `wiser/standards/primitives.md` owns the type's definition, invocation rules, frontmatter, and the classifier seam every new typed file here, and any file whose seam changes, declares in its Context. The directory is flat, and the index below is grouped by category. Every skill here is owned by an expert whose `Owns:` line names it, or says in its own Context why it stands alone; the Owner column projects that rule. The column is not the declaration.
+Capabilities a user invokes by name for their output; `wiser/standards/primitives.md` owns the type's definition, invocation rules, frontmatter, and the classifier seam every new typed file here, and any file whose seam changes, declares in its Context. The directory is flat, and the index below is grouped by category. Every skill here is owned by an expert whose `Owns:` line names it, or says in its own Context why it stands alone; a skill carrying neither has no declared owner yet, and its Owner cell says so. The Owner column projects that rule. The column is not the declaration.
 
 <!-- generated:index -->
 
