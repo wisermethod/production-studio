@@ -1,6 +1,6 @@
 # Production Studio
 
-A WISER plugin for producing and editing video, training videos first: scripts written for ear and eye, narration in your own cloned voice, screen walkthroughs, animation, editing and publishing. Its first skills, experts and tools are being built; each family's `AGENTS.md` index lists what it holds.
+A WISER plugin for producing and editing video, training videos first: scripts written for ear and eye, narration in your own voice clone, screen walkthroughs, animation, editing and publishing. Its first skills, experts and tools are being built; each family's `AGENTS.md` index lists what it holds.
 
 ## Install
 
