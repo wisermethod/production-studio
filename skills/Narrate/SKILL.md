@@ -58,7 +58,7 @@ Are all scene texts within the connector's 1 to 5,000 code-point limit?
 
 Does `<production>/narration/narration.json` exist?
 
-- Yes: read it. It holds the production's settings and each scene's current `cid`. The settings are every input key a take sends apart from `text` and `timings`: `voice_id`, `language`, and whichever of `speed`, `sample_rate`, `bit_rate` and `text_normalization` were sent.
+- Yes: read it. It is a JSON object with two keys, which later skills read by name: `settings`, the production's settings, and `scenes`, mapping each scene id to `{"cid": "<its current take's cid>"}`. The settings are every input key a take sends apart from `text` and `timings`: `voice_id`, `language`, and whichever of `speed`, `sample_rate`, `bit_rate` and `text_normalization` were sent.
 - No: this is the first narration. Use the voice clone supplied or chosen in step 3, `language: "en"` unless the request names another language, and only the optional keys the member asked for. Do not add optional defaults.
 
 Does the request change a recorded setting? Compare with the connector's stated defaults filled in on both sides: an absent `sample_rate` is 48000 and an absent `bit_rate` is 192000.
@@ -122,7 +122,7 @@ Immediately after each file answer, before the next call:
 1. Is `file.path` an absolute path, with no `..` part, to a regular file and not a symbolic link, named `<cid>.mp3`, where `<cid>` is a UUID, sitting directly in a directory named `outputs`? And does `<production>` resolve outside the directory that holds that `outputs` directory, the gateway home? Both: go on. Either not: stop the run, move nothing, and report the path.
 2. Create `<production>/narration/<scene>/` where it is missing. Move the one file `file.path` names, leaving no copy behind, to `<production>/narration/<scene>/<cid>.mp3`, the `cid` being the call's correlation id. The production is often on another volume, where a rename fails: then copy that one file to the scene path, check the copy's byte count and SHA-256 against the answer's, and only then remove that one source file, as `mv` does. The move fails otherwise: stop the run, report the path, and open nothing else under the gateway home; the file stays there until the gateway removes it.
 3. Compute the filed MP3's byte count and SHA-256 again. Do both match `file.bytes` and `file.sha256` in the answer? Yes: continue. Either differs: do not make the take current; stop the run and report both the answer's and the filed file's values.
-4. Write `<production>/narration/<scene>/<cid>.json` with the scene id, `cid`, action id, every input key sent except `text`, the text sent and its SHA-256, the answer's `characters` and `duration`, its `file.bytes` and `file.sha256`, the date filed as `YYYY-MM-DD`, and the answer's word timings. Add the delay fields when sub-step 5 gives them, and the check's result when step 8 gives it.
+4. Write `<production>/narration/<scene>/<cid>.json`, a JSON object with these keys, which later skills read by name: `scene`, the scene id; `cid`; `action`, the action id; `inputs`, an object of every input key sent except `text`; `text`, the text sent; `text_sha256`; `characters` and `duration`, the answer's; `file`, an object of the answer's `bytes` and `sha256`; `date_filed`, as `YYYY-MM-DD`; and `timings`, the answer's word timings as returned. Sub-step 5 adds `delay` and `aligned_file`, and step 8 adds `check`.
 
 5. Read and remove the delay. xAI's MP3 carries no gapless header, so a decoder plays the encoder's priming first and speech lands late on the word timings used for captions and beats.
 
@@ -154,6 +154,8 @@ Open no other path under the gateway home, `outputs/` itself included: no listin
 
 ### 8. The check
 
+The check's result goes in the take's record as `check`, an object: `result`, one of `pass`, `fail` or `unchecked`; `transcript`, the transcript's filename, with `pass` and `fail`; and `language`, with `unchecked`.
+
 Is the take's `language` English: `en` or `eng`, alone or followed by a subtag such as `en-US` or `eng-GB`, compared without regard to case?
 
 - No, `auto` included: record the check as unchecked, with its language and no transcript. Make the filed take current as described below. Checking a take narrated in a language other than English is this skill's gap; name it in the report. Do not run the English-only transcriber on it.
@@ -166,7 +168,7 @@ For an English take, remove complete square-bracket and angle-bracket tags from 
 - No, and this is the first take for the scene in this run: record fail and the transcript's filename. Keep the take without making it current. Give this scene one retake with the same text and settings, through steps 6 to 8, filed and checked in the same way.
 - No, and this is the retake: record fail and the transcript's filename. Keep both takes without making either current. Stop that scene and give the member both transcripts. A further take of it is a new narration: it goes back through step 5, its cost put to the member again, never covered by `<cost_approval>`.
 
-To make a take current, write its `cid` as that scene's current take in `narration.json`. On the first narration, record the production's settings there too; on an approved settings change, update them to those sent. Takes not made current leave the scene's previous current take in place, or no current take where none existed.
+To make a take current, write `{"cid": "<its cid>"}` as that scene's entry under `scenes` in `narration.json`. On the first narration, record the production's settings there too; on an approved settings change, update them to those sent. Takes not made current leave the scene's previous current take in place, or no current take where none existed.
 
 ### 9. The report
 
