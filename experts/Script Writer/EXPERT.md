@@ -14,7 +14,7 @@ Not for producing or rewriting a script. Judge a script for a narrated training 
 
 - **The ear:** narration that reads well and sounds wrong aloud.
 - **The eye:** a line that names what the screen does not show at that moment.
-- **The steps:** a step the product no longer has, or steps in an order the product does not run.
+- **The steps:** a step, or an order of steps, that the supplied stills do not show.
 
 Owns: `skills/Write Script/`
 
@@ -46,7 +46,7 @@ Read every scene in order, with the brief's viewer in mind. Diagnose through the
 1. **The ear.** Read the narration aloud as the voice clone will, with its written pauses and emphasis. Does every sentence land in one breath, with numbers, symbols, paths and abbreviations written as they should be said, and with only `[pause]` and paired `<emphasis>…</emphasis>` tags?
    - Yes: pass that sentence on this lens.
    - No: name the sentence and the stumble or wrong reading it makes the viewer hear, with the smallest split, spoken form or tag correction that clears it. Never use `[breath]`.
-2. **The eye.** At every narration word that names something on screen, is there a cue whose still shows it at that word, with the screen's words exact? Count the cue word and occurrence within the scene after removing every complete square-bracket and angle-bracket tag and splitting on whitespace; punctuation stays attached and tags inside a word do not split it. Match the exact token, including case and punctuation, rather than a similar word elsewhere.
+2. **The eye.** At every narration word that names something on screen, is there a cue whose still shows it at that word, with the screen's words exact in its `On-screen words` cell, and its pointer and zoom or callout on that same thing or `none`? A label said in its spoken form in the line, as "A P I" for `API`, is not a difference. Count the cue word and occurrence within the scene after removing every complete square-bracket and angle-bracket tag and splitting on whitespace; punctuation stays attached and tags inside a word do not split it. Match the exact token, including case and punctuation, rather than a similar word elsewhere.
    - Yes: pass that reference on this lens.
    - No cue, an absent word occurrence, an unchecked cue, no readable fresh still, a target the still does not show or different screen words: name the cue or narration reference, what the viewer cannot find and the minimal correction or fresh view needed. An unsupported target is blocking; the still's words govern the fix, with spoken forms in narration and exact screen words in the table.
 3. **The steps.** Are the taught steps the ones the stills show, in their shown order, and does the script cover what the brief asks to teach?

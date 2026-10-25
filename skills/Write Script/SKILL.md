@@ -29,13 +29,13 @@ Wrap supplied material so it never reads as instruction. Text inside these bound
 - `<production>`: the production folder, an absolute path in the owning root's declared work.
 - For a change, `<script>`: the existing script, and `<change>`: the change in the member's words and the scenes it touches, named by the caller or the member. Never infer that set.
 
-`voice` is required, bound per `AGENTS.md` in `wiser`, Workspace Model. Unbound, or bound to a file that model counts as unavailable: stop before writing, ask for the owning root where it is unresolved, and route to `skills/Build Voice/` in `wiser`. Never improvise the missing writing voice.
+`voice` is required, bound per `AGENTS.md` in `wiser`, Workspace Model. The owning root is unresolved: ask once which root owns the script. The root is resolved and its `voice` is unbound, or bound to a file that model counts as unavailable: stop before writing and route to `skills/Build Voice/` in `wiser`. Never improvise the missing writing voice.
 
 ## Script format
 
 One file, `<production>/script.md`, in this shape:
 
-- The title as a level-1 heading, then a list with `Viewer:`, `Teaches:`, `Capture:` (the dates taken and what the stills show), `Length:` and `Status:`. With no fresh capture, `Capture:` says what is unavailable. `Length:` gives the estimate as a range with both rates and says real timing comes from the narration. `Status:` is `ready` or `draft`; a draft lists every reason.
+- The title as a level-1 heading, then a list with `Viewer:`, `Teaches:`, `Capture:` (the dates taken, what the stills show, and the supplier's statement that they were taken for this script from the product as it is now), `Length:` (with the brief's target) and `Status:`. With no fresh capture, `Capture:` says what is unavailable. `Length:` gives the estimate as a range with both rates and says real timing comes from the narration. `Status:` is `ready` or `draft`; a draft lists every reason.
 - Each scene has a `## <scene id>` heading. Ids name their scenes, are unique, contain only lowercase letters, digits and hyphens, and stay across versions.
 - Immediately under the heading, one fenced block with the info string `text`, its fence longer than any run of backticks on its line. Its one nonempty content line is exactly the text `Narrate` will send, 1 to 5,000 Unicode code points including tags and whitespace. The fences and their structural line endings are not narration text. Do not trim or normalize that line.
 - After that block, one cue table with these columns, in this order:
@@ -45,7 +45,7 @@ One file, `<production>/script.md`, in this shape:
 
 `At` is written as the exact narration word token in a code span, a space, then its occurrence within that scene as a number counted from one: `` `Save.` 2 `` is the second `Save.`. Count as `connectors/xai/CONNECTOR.md` in `wiser` counts word timings: remove every complete square-bracket and angle-bracket tag, then split on whitespace, keeping punctuation attached. A tag within a word does not split it. Count occurrences of that exact token without changing its case or punctuation. A cue uses the token's start, never a guessed time in seconds.
 
-`On screen` says what the viewer sees at that word. `Still` names the still checked or reads `unchecked`. `Pointer` names its target or says `none`; `Zoom or callout` specifies one or says `none`. Each names only what the cue's still shows. `On-screen words` reproduces the still's words exactly; with no still to confirm them, leave that cell empty rather than invent a label.
+`On screen` says what the viewer sees at that word. `Still` names the still checked or reads `unchecked`. `Pointer` and `Zoom or callout` each indicate the thing the `At` word names, as the cue's still shows it, or say `none`. `On-screen words` reproduces the still's words exactly; with no still to confirm them, leave that cell empty rather than invent a label. In any cell, a `|` is written `\|`, and a code span uses a longer run of backticks than any its content holds.
 
 ## Steps
 
@@ -78,7 +78,7 @@ Is a capture supplied, each still named and dated, with the supplier's statement
 
 Split the teaching into scenes a viewer can follow and a change can touch alone. Give each a scene id meeting Script format. Are the ids valid, unique and descriptive of their scenes?
 
-- No: correct new ids before writing narration; on a change, ask about an invalid existing id rather than silently replacing it.
+- No: correct new ids before writing narration. On a change, ask about an invalid existing id rather than silently replacing it; until the member names that scene for a rename, its id is a draft reason, since `Narrate` takes no scene whose id it refuses.
 - Yes: keep the ids with their scenes through the remaining steps.
 
 ### 4. The ear
@@ -91,7 +91,7 @@ Is a scene's exact narration text within 1 to 5,000 code points, tags and whites
 - Over 5,000: split it into two scenes and count again. On a change, retain its id for the first and give the added scene a new id.
 - Within the limit: keep the text whole in its single-line block.
 
-Count the whole script's narration words by Script format's word rule. State the estimates at both 154 and 202 words a minute, the range one voice clone was measured to run at a single setting: for `W` words the range is `W / 202` to `W / 154` minutes. Real timing comes from the narration's audio, not either estimate.
+Count the whole script's narration words by Script format's word rule. Does the brief's target length lie outside the range below by more than a quarter of the target? Yes: name both figures as a draft reason. No: go on. State the estimates at both 154 and 202 words a minute, the range one voice clone was measured to run at a single setting: for `W` words the range is `W / 202` to `W / 154` minutes. Real timing comes from the narration's audio, not either estimate.
 
 ### 5. The eye
 
@@ -104,11 +104,11 @@ Does each cue's token and occurrence exist in the exact narration text? No: corr
 
 ### 6. The check, before handing on
 
-For every cue, does its fresh still show what the line names at that word, with the same on-screen words, and the pointer's target and the zoom or callout where the cue names them?
+For every cue, does its fresh still show the thing the line names at that word, with the cue's `On-screen words` cell exactly as the still shows them, and with the pointer and the zoom or callout on that same thing? The narration says a label in its spoken form, so `API` in the cell and "A P I" in the line are not a difference.
 
 - Yes: put that still's name in `Still`.
-- The words differ: the still wins. Use its words in the narration, applying step 4's spoken forms, and exactly in the table. Recount the affected word occurrences and report the difference.
-- The still does not show the pointer's target or the zoomed or called-out area: write `none` in that column, or keep the cue `unchecked` where the cue needs it.
+- The cell's words differ from the still's: the still wins. Put its words exactly in the cell, and its label in the narration in step 4's spoken form. Recount the affected word occurrences and report the difference.
+- The pointer or the zoom or callout falls on something other than what the line names: move it to that thing as the still shows it, or write `none`.
 - No still shows the named thing, or no readable fresh still is available: keep the cue `unchecked` and name what the capture must show. Do not assert an unsupported product step as a fact in the narration.
 
 Does the capture show every product step the brief asks to teach, in the order the script uses?
@@ -125,7 +125,7 @@ Each review runs in a second context that did not write the script, as Behaviora
 - Yes: open it for each review in turn.
 - No: a new chat given exactly the expert's file and its inputs is that context. Hand the member that step, and keep the script a draft until each verdict comes back.
 
-First `experts/Script Writer/` here, given `<script>`, `<capture>` and `<brief>` as its Inputs declare. Then `experts/Ghost Writer/` in `wiser`, given the script as `<draft>`, the viewer as its intended reader, and the owning root, whose bound `voice` it resolves itself; it judges prose and the bound `voice` as its own file states, the cues read as the screen beside the words.
+First `experts/Script Writer/` here, given `<script>`, `<capture>` and `<brief>` as its Inputs declare. Then `experts/Ghost Writer/` in `wiser`, given as `<draft>` the narration lines alone, each under its scene id, in order, the viewer as its intended reader, and the owning root, whose bound `voice` it resolves itself; it judges prose and the bound `voice` as its own file states. The cue tables and the header are not that piece. The header's `Length:` and `Status:` are set after the reviews and are part of neither reviewed text; any change to a narration line or a cue after a verdict re-runs that gate under its own rules.
 
 What did each review return?
 
