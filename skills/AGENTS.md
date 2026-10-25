@@ -9,7 +9,7 @@ Capabilities a user invokes by name for their output; `wiser/standards/primitive
 | Skill | Description | Owner |
 |-------|-------------|-------|
 | `Narrate/SKILL.md` | Narration for supplied scenes in the member's voice clone, filed with take records and word timings, each English take checked sentence by sentence | None yet |
-| `Set Up Voice Clone/SKILL.md` | One person's voice clone found in the member's xAI team and recorded with cloning consent for later productions, or a named stop | None yet |
+| `Set Up Voice Clone/SKILL.md` | One person's voice clone, found in the member's xAI team and confirmed by the member, recorded for later productions with the answer to the one consent question where it was asked, or a named stop | None yet |
 
 ### Writing
 

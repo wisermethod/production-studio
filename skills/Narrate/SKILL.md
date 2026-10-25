@@ -16,6 +16,8 @@ Not for writing or editing the script, creating a voice clone, deciding which sc
 
 This skill takes no sample and clones nothing. Under this plugin's Standing constraint, the one consent ask belongs to cloning. Ask no consent or rights question about the voice clone or the script.
 
+No expert of this plugin owns this skill yet, so its own file names its gate: the member's yes to the cost, step 5, before any billed call, and each take's check, step 8, before it becomes current.
+
 Classifier seam: none.
 
 ## Objective
