@@ -37,7 +37,7 @@ This skill writes only inside the production folder. `tools/Transcribe Audio/` i
 
 ## Steps
 
-For each scene selected in step 4, finish steps 6 to 8 before starting the next scene; a check-only take first completes any missing delay filing as step 4 states, then runs step 8. Preserve the supplied order.
+For each scene selected in step 4, finish steps 6 to 8 before starting the next scene; a check-only take first completes any missing delay filing as step 4 states, then runs step 8. Preserve the supplied order. Every number written to a record is a JSON number, not a string.
 
 ### 1. The scenes
 
@@ -58,7 +58,7 @@ Are all scene texts within the connector's 1 to 5,000 code-point limit?
 
 Does `<production>/narration/narration.json` exist?
 
-- Yes: read it. It is a JSON object with two keys, which later skills read by name: `settings`, the production's settings, and `scenes`, mapping each scene id to `{"cid": "<its current take's cid>"}`. The settings are every input key a take sends apart from `text` and `timings`: `voice_id`, `language`, and whichever of `speed`, `sample_rate`, `bit_rate` and `text_normalization` were sent.
+- Yes: read it. It is a JSON object with two keys, which later skills read by name: `settings`, the production's settings, and `scenes`, mapping each scene id to `{"cid": "<its current take's cid>"}`. The settings are every input key a take sends apart from `text` and `timings`: `voice_id`, `language`, and whichever of `speed`, `sample_rate`, `bit_rate` and `text_normalization` were sent. Not in that shape, or a scene's entry not an object holding a `cid`: stop before any call, report the keys it has, and change nothing.
 - No: this is the first narration. Use the voice clone supplied or chosen in step 3, `language: "en"` unless the request names another language, and only the optional keys the member asked for. Do not add optional defaults.
 
 Does the request change a recorded setting? Compare with the connector's stated defaults filled in on both sides: an absent `sample_rate` is 48000 and an absent `bit_rate` is 192000.
@@ -78,13 +78,13 @@ Which voice clone is used?
 
 ### 4. Which scenes are narrated
 
-For each scene, read its current take's record through the `cid` in `narration.json`, where one exists. Does the scene need narration?
+For each scene, read its current take's record through the `cid` in `narration.json`, where one exists. A record not in step 7's shape, sub-step 4: stop before any call, report the keys it has, and change nothing. Does the scene need narration?
 
 - It has a current take with the same text hash and settings, and the production's settings have not changed: keep that take and make no call for the scene.
 - It has no such current take, but a take filed in its folder has that text hash and those settings, because an earlier run stopped before finishing it. Its check passed: make it current, with no call. It has no check result: make no call, and keep it as a check-only take for step 8. Its check failed: narrate the scene.
 - Otherwise, including no current take, a different text hash, or changed settings: narrate it.
 
-Does a check-only take's record hold a `delay`? Yes: keep its delay and aligned file fields. No: run step 7's sub-step 5 on it, which adds them to its record, with no call. Do this before step 8.
+Before a take is kept, made current or checked here, does its record hold `delay`? Yes: go on. No: run step 7's sub-step 5 on it first, with no call. A take is made current only when its record holds `delay` (step 8), so a kept take whose delay filing cannot finish stays as it is, and step 9 names it.
 
 ### 5. The cost
 
@@ -92,7 +92,7 @@ Is this session Claude Code, Codex, Grok or Cursor, the apps that can attach the
 
 Are there scenes to narrate?
 
-- None: no cost and no call. Run step 8 on each check-only take from step 4, then go to step 9 and say every other scene kept its take.
+- None: no cost and no call. Finish each check-only take from step 4, its delay filing first where missing and then step 8, then go to step 9 and say every other scene kept its take.
 - One or more: before the first billed call, read Destructive Actions in `connectors/xai/CONNECTOR.md` in `wiser`. Use its stated rate and the date that page says the rate was read. List the selected scenes and each one's code-point count, tags and whitespace included. Show their total multiplied by that rate, converting a per-million rate to a per-code-point rate, and the worst case: every selected scene taken twice, allowing one retake each in step 8. Where settings changed, say every scene is being narrated again and include all of them in these totals.
 
 Has the member approved the worst-case amount?
@@ -126,7 +126,7 @@ Immediately after each file answer, before the next call:
 
 5. Read and remove the delay. xAI's MP3 carries no gapless header, so a decoder plays the encoder's priming first and speech lands late on the word timings used for captions and beats.
 
-   Do `ffprobe -version` and `ffmpeg -version` both succeed? Yes: continue. No: load Dependencies in `tools/Transcribe Audio/TOOL.md` in `wiser`, install the missing dependency from FFmpeg's own current documentation (`ffprobe` is supplied with FFmpeg), then run its check and the command again. Can both commands run after that? Yes: continue. No: follow Behavioral Core in `AGENTS.md` in `wiser`; keep the MP3 and its record filed but not current, and report the unavailable delay filing.
+   Do `ffprobe -version` and `ffmpeg -version` both succeed? Yes: continue. No: load Dependencies in `tools/Transcribe Audio/TOOL.md` in `wiser`, install the missing dependency from FFmpeg's own current documentation (`ffprobe` is supplied with FFmpeg), then run its check and the command again. Can both commands run after that? Yes: continue. No: follow Behavioral Core in `AGENTS.md` in `wiser`; write no `delay`, so the take is not made current (step 8), and report the unavailable delay filing. No retake and no call follow from it; a later run finishes the filing with no call (step 4).
 
    Read the filed MP3's codec, sample rate and first packet:
 
@@ -136,19 +136,28 @@ Immediately after each file answer, before the next call:
 
    Which delay does the take carry?
 
-   - Its first packet's `side_data_list` carries `side_data_type: "Skip Samples"`: keep its `skip_samples` value as the header's stated delay. FFmpeg removes it while decoding, so set `n` to 0 and the basis to `header_skip_samples`.
-   - No `Skip Samples`, and the bytes `LAME` appear in the file: set `n` to 1105 samples at the take's own sample rate, LAME's 576 encoder samples and the decoder's 529, unstated without a gapless header. Set the basis to `lame_no_header`.
-   - Neither: the delay is unknown. Set `n` to 0 and the basis to `unknown`, and name the take in step 9.
+   - The stream's `codec_name` is `mp3`, and its first packet's `side_data_list` carries `side_data_type: "Skip Samples"`: keep its `skip_samples` value as the header's stated delay. FFmpeg removes it while decoding, so set `n` to 0 and the basis to `header_skip_samples`.
+   - The `codec_name` is `mp3`, no `Skip Samples`, and the file's bytes hold `LAME` followed by a digit, the LAME encoder's signature: set `n` to 1105, LAME's 576 encoder samples and the decoder's 529, which a file without a gapless header does not state. The count is in samples at the take's own sample rate, whatever that rate is; never scale it from another rate. Set the basis to `lame_no_header`.
+   - Neither: the delay is unknown. Set `n` to 0 and the basis to `unknown`, write no WAV, and name the take in step 9. Go straight to the record, below.
 
-   Write the aligned copy beside the MP3, leaving the MP3 exactly as filed:
+   Where the delay is known, write the aligned copy beside the MP3. Is there anything at `<production>/narration/<scene>/<cid>.wav`? Yes: the record holds no `delay`, so it is this sub-step's unfinished output for this take, which the MP3 makes again. Name it in the report, remove that one path as a command of its own, then go on. No: go on. Then run the one command that fits, which never overwrites:
 
    ```bash
-   ffmpeg -v error -i "<production>/narration/<scene>/<cid>.mp3" -af atrim=start_sample=<n> -map_metadata -1 -fflags +bitexact -flags:a +bitexact -c:a pcm_s16le "<production>/narration/<scene>/<cid>.wav"
+   # n greater than 0: replace <n> with it
+   ffmpeg -n -v error -i "<production>/narration/<scene>/<cid>.mp3" -af atrim=start_sample=<n> -map_metadata -1 -fflags +bitexact -flags:a +bitexact -c:a pcm_s16le "<production>/narration/<scene>/<cid>.wav"
+   # n is 0
+   ffmpeg -n -v error -i "<production>/narration/<scene>/<cid>.mp3" -map_metadata -1 -fflags +bitexact -flags:a +bitexact -c:a pcm_s16le "<production>/narration/<scene>/<cid>.wav"
    ```
 
-   Is `n` 0? Yes: omit `-af atrim=start_sample=<n>` from the command. No: replace `<n>` with the samples to remove. The 16-bit PCM WAV keeps the MP3's sample rate; where the delay is known, its first sample is xAI's time 0 and the take's word timings sit on it. Read back the WAV's byte count, SHA-256 and sample count, the last from the stream's `duration_ts` reported by `ffprobe` or from its WAV data size divided by its channel count and two bytes per sample.
+   Did `ffmpeg` exit 0, print nothing, and leave a file at `<cid>.wav`? All three are needed, since FFmpeg also exits 0 when it declines to overwrite. No: write no `delay`, so the take is not made current, and report the error; no retake and no call follow from it. Yes: compute the MP3's byte count and SHA-256 again. Do both still match the answer's? No: stop the run, the take not current, and report both values. Yes: the 16-bit PCM WAV keeps the MP3's sample rate, its first sample is xAI's time 0, and the take's word timings sit on it. Read it back:
 
-   Add to the take's record `delay.samples_removed` (`n`), `delay.sample_rate` (the MP3 stream's rate), `delay.basis` (`header_skip_samples`, `lame_no_header` or `unknown`), and `delay.stated_skip_samples` (the header's stated value, or `null` in the other two cases); and `aligned_file.name` (`<cid>.wav`), `aligned_file.bytes`, `aligned_file.sha256` and `aligned_file.sample_count`, using the WAV's read-back values.
+   ```bash
+   ffprobe -v error -select_streams a:0 -show_entries stream=sample_rate,channels,time_base,duration_ts -of json "<production>/narration/<scene>/<cid>.wav"
+   ```
+
+   Its sample count is `duration_ts`, counted in the `time_base` of `1/` and its `sample_rate` that a WAV reports. Compute the WAV's byte count and SHA-256.
+
+   Add to the take's record `delay`, an object of `samples_removed` (`n`), `sample_rate` (the MP3 stream's rate), `basis` (`header_skip_samples`, `lame_no_header` or `unknown`) and `stated_skip_samples` (the header's stated value, or `null` in the other two cases); and `aligned_file`, an object of `name` (`<cid>.wav`), `bytes`, `sha256` and `sample_count`, from the WAV's read-back, or `null` where the delay is unknown.
 
 Open no other path under the gateway home, `outputs/` itself included: no listing, and no other file read, moved or removed. A rule kept only in the gateway's own documentation does not reach a skill when it runs, so this boundary is carried here. A file left in `outputs/` is removed after seven days; filing happens now.
 
@@ -168,11 +177,11 @@ For an English take, remove complete square-bracket and angle-bracket tags from 
 - No, and this is the first take for the scene in this run: record fail and the transcript's filename. Keep the take without making it current. Give this scene one retake with the same text and settings, through steps 6 to 8, filed and checked in the same way.
 - No, and this is the retake: record fail and the transcript's filename. Keep both takes without making either current. Stop that scene and give the member both transcripts. A further take of it is a new narration: it goes back through step 5, its cost put to the member again, never covered by `<cost_approval>`.
 
-To make a take current, write `{"cid": "<its cid>"}` as that scene's entry under `scenes` in `narration.json`. On the first narration, record the production's settings there too; on an approved settings change, update them to those sent. Takes not made current leave the scene's previous current take in place, or no current take where none existed.
+Make a take current only when its record holds `delay`; a take without one stays filed and not current, and step 9 names it. To make a take current, write `{"cid": "<its cid>"}` as that scene's entry under `scenes` in `narration.json`. On the first narration, record the production's settings there too; on an approved settings change, update them to those sent. Takes not made current leave the scene's previous current take in place, or no current take where none existed.
 
 ### 9. The report
 
-Report each scene, narrated or kept, with its current `cid`, duration and check result. A scene has no current take: say so rather than inventing those values. Include each take's `cid` and samples removed, and name every take whose delay is unknown. Include the characters billed and their cost at the rate used, including failed checks and retakes, with the rate and its read date. Name every stopped scene and why it stopped, and every non-English current take left unchecked.
+Report each scene, narrated or kept, with its current `cid`, duration and check result. A scene has no current take: say so rather than inventing those values. Include each take's `cid` and samples removed, and name every take whose delay is unknown or whose delay filing did not finish, never inventing its samples. Include the characters billed and their cost at the rate used, including failed checks and retakes, with the rate and its read date. Name every stopped scene and why it stopped, and every non-English current take left unchecked.
 
 ## Pitfalls
 
@@ -182,8 +191,8 @@ Report each scene, narrated or kept, with its current `cid`, duration and check 
 
 ## Success
 
-- Every made take has an MP3, a WAV with its known encoder delay removed, and a matching `<cid>.json` beside them in its scene's narration folder. The filed MP3's bytes and SHA-256 match the answer, and the record carries the sent text and its hash, inputs, call identity, answer metadata, filing date, word timings, check result, delay samples removed, sample rate, basis and header's stated delay, and the aligned file's name, bytes, SHA-256 and sample count.
+- Every made take has an MP3 and a matching `<cid>.json` beside it in its scene's narration folder, and a WAV with its encoder delay removed wherever that delay is known. The filed MP3's bytes and SHA-256 match the answer, before and after the WAV is written, and the record carries, in step 7's shape, the sent text and its hash, inputs, call identity, answer metadata, filing date, word timings, check result, `delay` and `aligned_file`. Every current take's record holds `delay`.
 - `narration.json` holds the production settings and each scene's current `cid`; each current take matches those settings and the supplied text, or the report identifies the scene that stopped and kept its previous take. An unchanged scene kept its current take without a call.
 - Each English take with a completed check has its transcript in its scene folder and pass or fail recorded with that filename. Only a passing English take became current; a non-English take became current explicitly unchecked. Failed takes and their transcripts remain on disk.
 - No filed `cid` remains at its returned source path in `outputs/`, established only at that exact path without listing or opening the directory.
-- The report accounts for every scene, its current take or absence, duration, check, stopped reason where applicable, every take's samples removed and every unknown delay, billed characters and cost. The member's approval covered the worst case before billing, and no scene was taken more than twice in one run.
+- The report accounts for every scene, its current take or absence, duration, check, stopped reason where applicable, every take's samples removed and every unknown or unfinished delay, billed characters and cost. The member's approval covered the worst case before billing, and no scene was taken more than twice in one run.
