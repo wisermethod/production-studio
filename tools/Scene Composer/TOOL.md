@@ -6,13 +6,14 @@ description: Composes one still walkthrough scene into a seek-driven HTML projec
 version: 0.2.0
 gaps:
   - Composing a scene from more than one still
+  - Choosing the side of its rectangle a callout's label sits on
 ---
 
 # Scene Composer
 
 ## Context
 
-Does not capture a product, narrate, render video, join pictures or mix sound. Capture belongs to `wiser/tools/Screen Capture/TOOL.md`, rendering to `wiser/tools/video-render/TOOL.md`, and editing and sound to `wiser/tools/video-edit/TOOL.md`. Composing a scene from more than one still is missing in this version.
+Does not capture a product, narrate, render video, join pictures or mix sound. Capture belongs to `wiser/tools/Screen Capture/TOOL.md`, rendering to `wiser/tools/video-render/TOOL.md`, and editing and sound to `wiser/tools/video-edit/TOOL.md`. Composing a scene from more than one still, and choosing the side of its rectangle a callout's label sits on, are missing in this version.
 
 Use it to turn one scene's still, aligned take record and word cues into a local HTML project and a caption track. Use `timing` for a scene another tool draws: it writes captions and timing from narration alone. Optional drawn captions in `compose` have their own supplied style; an SRT is written in both caption modes. The tool reaches no account, reads no credential, makes no network call and installs nothing.
 
@@ -217,7 +218,7 @@ Work success is one JSON object on stdout and exit 0. Help prints usage. Failure
 
 `captions` stdout holds `cues` and the written SRT's `sha256`. It writes only the requested SRT.
 
-Every seek sets every visual state from `detail.time` alone, including seeks in reverse order and the first seek in a fresh browser. Every element whose opacity changes is kept on a compositing layer of its own from the first seek (`will-change: opacity`), so a frame drawn after a fade is the same whether or not the same browser drew the fade: without it, text after a fade differed by one or two levels between one render worker and several. Nothing is marked `will-change: transform`: a layer so marked is rasterized at one scale and resized, so a zoom's detail would depend on when that browser drew it. There are no timers, animation frames, CSS animations or transitions, retained playback position, external libraries or external-origin loads. The project follows `wiser/tools/video-render/TOOL.md` The project.
+Every seek sets every visual state from `detail.time` alone, including seeks in reverse order and the first seek in a fresh browser. Every element whose opacity changes is kept on a compositing layer of its own from the first seek (`will-change: opacity`), so a frame drawn after a fade is the same whether or not the same browser drew the fade: without it, text after a fade differed by one or two levels between one render worker and several. Nothing is marked `will-change: transform`: a layer so marked is rasterized at one scale and resized, so a zoom's detail would depend on when that browser drew it. So one render worker and several draw the same frames for every fade, every appearance and each move's arrival frame, but not for every frame inside a move: measured 2026-10-26 through `video-render` 0.1.0, a camera's return to the full still with the pointer travelling drew seven mid-move frames up to 3 levels apart. There are no timers, animation frames, CSS animations or transitions, retained playback position, external libraries or external-origin loads. The project follows `wiser/tools/video-render/TOOL.md` The project.
 
 ## Script Contract
 

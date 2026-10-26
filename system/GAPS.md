@@ -4,7 +4,7 @@ What this plugin does not do, declared by the primitive that names it.
 
 A gap is a capability this root does not provide that a primitive's own body names as missing (`wiser/standards/primitives.md`). This file collects every declared `gaps` entry, by hand, and is corrected whenever a primitive's gaps change. It carries capability gaps only, and names what is missing, never where it went.
 
-Counted 2026-10-26: 10 gaps across 6 primitives. Bullet count: `grep -E '^- ' system/GAPS.md | wc -l` returns 10, and the same count derived from the primitives' own `gaps:` frontmatter returns 10.
+Counted 2026-10-26: 11 gaps across 6 primitives. Bullet count: `grep -E '^- ' system/GAPS.md | wc -l` returns 11, and the same count derived from the primitives' own `gaps:` frontmatter returns 11.
 
 ## Skills
 
@@ -31,6 +31,7 @@ Counted 2026-10-26: 10 gaps across 6 primitives. Bullet count: `grep -E '^- ' sy
 ### Scene Composer
 
 - Composing a scene from more than one still
+- Choosing the side of its rectangle a callout's label sits on
 
 ### Timeline
 
