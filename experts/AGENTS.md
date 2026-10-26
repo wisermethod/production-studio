@@ -4,6 +4,12 @@ Personas that carry a perspective, judge work through it, and sequence the skill
 
 <!-- generated:index -->
 
+### Media
+
+| Expert | Description | Owns |
+|--------|-------------|------|
+| `Animator/EXPERT.md` | Judge a narrated video's made scenes for timing, target, hold and motion that reads as one video, returning ship or event-specific findings with viewer cost and a minimal fix | `skills/Animate Scenes/` |
+
 ### Writing
 
 | Expert | Description | Owns |

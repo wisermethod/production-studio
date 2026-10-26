@@ -8,6 +8,7 @@ Capabilities a user invokes by name for their output; `wiser/standards/primitive
 
 | Skill | Description | Owner |
 |-------|-------------|-------|
+| `Animate Scenes/SKILL.md` | Supplied walkthrough and explainer scenes animated to their narration's word cues, rendered as video segments with captions and a scene record, each ready only after the Animator's review | Animator |
 | `Narrate/SKILL.md` | Narration for supplied scenes in the member's voice clone, filed with take records and word timings, each English take checked sentence by sentence | None yet |
 | `Publish Video/SKILL.md` | A finished production published unlisted on the member's YouTube channel with captions, a custom thumbnail, chapter timestamps and a playlist item, recorded with its current version or what remains incomplete | None yet |
 | `Set Up Voice Clone/SKILL.md` | One person's voice clone, found in the member's xAI team and confirmed by the member, recorded for later productions with the answer to the one consent question where it was asked, or a named stop | None yet |
