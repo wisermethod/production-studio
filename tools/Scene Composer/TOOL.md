@@ -198,7 +198,7 @@ Work success is one JSON object on stdout and exit 0. Help prints usage. Failure
 
 `captions` stdout holds `cues` and the written SRT's `sha256`. It writes only the requested SRT.
 
-Every seek sets every visual state from `detail.time` alone, including seeks in reverse order and the first seek in a fresh browser. There are no timers, animation frames, CSS animations or transitions, retained playback position, external libraries or external-origin loads. The project follows `wiser/tools/video-render/TOOL.md` The project.
+Every seek sets every visual state from `detail.time` alone, including seeks in reverse order and the first seek in a fresh browser. Every element whose opacity changes is kept on a compositing layer of its own from the first seek (`will-change: opacity`), so a frame drawn after a fade is the same whether or not the same browser drew the fade: without it, text after a fade differed by one or two levels between one render worker and several. Nothing is marked `will-change: transform`: a layer so marked is rasterized at one scale and resized, so a zoom's detail would depend on when that browser drew it. There are no timers, animation frames, CSS animations or transitions, retained playback position, external libraries or external-origin loads. The project follows `wiser/tools/video-render/TOOL.md` The project.
 
 ## Script Contract
 

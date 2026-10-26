@@ -8,7 +8,7 @@ const {fixture,ok}=require('./support.js');
 const renderer=process.env.SCENE_COMPOSER_VIDEO_RENDER;
 const assets=process.env.SCENE_COMPOSER_TEST_ASSETS;
 function render(args){const r=spawnSync(process.execPath,[renderer,...args],{encoding:'utf8',timeout:240000,maxBuffer:8*1024*1024});assert.equal(r.status,0,r.stderr);return JSON.parse(r.stdout);}
-test('video-render: intermediate MP4, two identical sequences, selected frames', {skip:!renderer?'SCENE_COMPOSER_VIDEO_RENDER unset; renderer integration not run':false,timeout:240000},t=>{
+test('video-render: intermediate MP4, identical sequences on one worker and three, selected frames', {skip:!renderer?'SCENE_COMPOSER_VIDEO_RENDER unset; renderer integration not run':false,timeout:240000},t=>{
   const f=fixture(t);delete f.spec.take;f.spec.duration=1;f.spec.frame.fps=10;
   f.spec.cursor={start:{x:5,y:5},moves:[{x:90,y:60,at:{seconds:0.4}}]};
   f.spec.clicks=[{at:{seconds:0.4}}];f.spec.camera=[{rect:{x:60,y:35,w:60,h:45},at:{seconds:0.8}}];
@@ -19,6 +19,9 @@ test('video-render: intermediate MP4, two identical sequences, selected frames',
   const b=render(['sequence',...common,'--output',path.join(f.dir,'sequence-b')]);
   assert.equal(a.frameCount,10);assert.equal(b.frameCount,10);
   assert.deepEqual(fs.readFileSync(a.hashesPath),fs.readFileSync(b.hashesPath));
+  // Split across workers, each starting fresh partway through a fade, the frames must not change.
+  const c=render(['sequence',...common.slice(0,-1),'3','--output',path.join(f.dir,'sequence-c')]);
+  assert.deepEqual(fs.readFileSync(c.hashesPath),fs.readFileSync(a.hashesPath),'three workers drew different frames from one');
   const hashes=fs.readFileSync(a.hashesPath,'utf8').trim().split('\n').map(line=>line.split(/\s+/)[0]);assert.ok(new Set(hashes).size>1,'motion must change pixels');
   const mp4=render(['render',...common,'--output',path.join(f.dir,'scene.mp4'),'--profile','intermediate']);assert.equal(mp4.frameCount,10);
   const stills=render(['frames',...common,'--output',path.join(f.dir,'selected'),'--times','0,0.4,0.8']);assert.equal(stills.frames.length,3);
