@@ -102,6 +102,17 @@ test('the still is drawn unrotated, and labels are placed without measuring',t=>
   assert.match(css,/#still \{ image-orientation: none;/);
   assert.doesNotMatch(js,/offsetWidth|offsetHeight|getBoundingClientRect/);
 });
+test('every label box stays inside the still, for any rectangle',()=>{
+  const {placeLabel}=require('../scripts/page.js');
+  const n=v=>v===undefined?undefined:Number(String(v).replace('px',''));
+  const box=(W,H,st)=>{const mw=n(st.maxWidth),mh=n(st.maxHeight);
+    const x0=st.left!==undefined?n(st.left):W-n(st.right)-mw, y0=st.top!==undefined?n(st.top):H-n(st.bottom)-mh;
+    return [x0,y0,x0+mw,y0+mh];};
+  const cases=[[160,90,{x:10,y:50,w:40,h:20}],[160,90,{x:40,y:80,w:80,h:10}],[160,90,{x:40,y:10,w:80,h:20}],[100,100,{x:70,y:10,w:20,h:40}],[160,90,{x:120,y:10,w:30,h:20}],[1280,800,{x:560,y:340,w:300,h:120}]];
+  for(const W of [100,160,640,1280])for(const H of [90,100,360,800])for(let x=0;x<W;x+=Math.ceil(W/7))for(let y=0;y<H;y+=Math.ceil(H/7))for(const w of [1,30,90])for(const h of [1,20,60])if(x+w<=W&&y+h<=H)cases.push([W,H,{x,y,w,h}]);
+  for(const [W,H,r] of cases){const [x0,y0,x1,y1]=box(W,H,placeLabel(W,H,r));
+    assert.ok(x0>=0&&y0>=0&&x1<=W&&y1<=H&&x1-x0>=Math.min(80,W)&&y1-y0>=Math.min(48,H),JSON.stringify({W,H,r,box:[x0,y0,x1,y1]}));}
+});
 test('no take, empty SRT, explicit seconds captions and scene-end cap',t=>{
   const f=fixture(t);delete f.spec.take;f.spec.duration=0.41;
   let r=ok(compose(f));assert.equal(r.frames,13);assert.equal(fs.readFileSync(path.join(f.output,'captions.srt'),'utf8'),'');

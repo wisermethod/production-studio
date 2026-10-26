@@ -45,7 +45,26 @@ function stateAt(D, f) {
     captions: D.captions.cues.map(c => f < c.end_frame ? alpha(c.start_frame, undefined, D.fades.caption) : 0)
   };
 }
-function mount(D, stateAt) {
+// A label's box is placed from its rectangle and the still alone, never from a measured width, and bounded on all four
+// sides by the still: beside the rectangle on the side with more room where either side has 80 pixels, else above or
+// below it where either has room for one line, else in the still's top left corner. Its width and height are capped
+// at the room on its side and its overflow is clipped, so a long or wrapped label is cut short rather than leaving the
+// still. It closes over nothing; it returns the label's CSS position and caps.
+function placeLabel(W, H, r) {
+  const GAP = 12, MIN = 80, LINE = 48;
+  const px = n => `${n}px`, right = W - (r.x + r.w + GAP), left = r.x - GAP;
+  const vertical = () => (H - r.y >= LINE ? { top: px(r.y), maxHeight: px(H - r.y) } : { bottom: px(H - (r.y + r.h)), maxHeight: px(r.y + r.h) });
+  if (Math.max(right, left) >= MIN) {
+    return right >= left ? { left: px(r.x + r.w + GAP), maxWidth: px(right), ...vertical() } : { right: px(W - left), maxWidth: px(left), ...vertical() };
+  }
+  const above = r.y - GAP, below = H - (r.y + r.h + GAP), x = Math.max(0, Math.min(r.x, W - MIN));
+  if (Math.max(above, below) >= LINE) {
+    return below >= above ? { left: px(x), top: px(r.y + r.h + GAP), maxWidth: px(W - x), maxHeight: px(below) }
+      : { left: px(x), bottom: px(H - above), maxWidth: px(W - x), maxHeight: px(above) };
+  }
+  return { left: px(0), top: px(0), maxWidth: px(W), maxHeight: px(H) };
+}
+function mount(D, stateAt, placeLabel) {
   const get = id => document.getElementById(id);
   const camera = get('camera');
   function element(tag, className, parent, text) {
@@ -53,17 +72,10 @@ function mount(D, stateAt) {
     if (text !== undefined) e.textContent = text;
     parent.appendChild(e); return e;
   }
-  // A label is placed from the rectangle and the still alone, never from a measured width, so its place cannot depend on
-  // whether a font had loaded when a seek ran: it sits beside the rectangle on the side with more room, as wide as that
-  // room allows, and wraps; with under 80 pixels either side it sits inside the rectangle's top left corner.
-  const GAP = 12, MIN = 80;
   const callouts = D.callouts.map(c => {
     const r = c.rect, e = element('div', 'callout', camera), label = element('div', 'label', camera, c.label);
     Object.assign(e.style, { left: `${r.x}px`, top: `${r.y}px`, width: `${r.w}px`, height: `${r.h}px` });
-    const right = D.still.width - (r.x + r.w + GAP), left = r.x - GAP;
-    if (Math.max(right, left) < MIN) Object.assign(label.style, { left: `${r.x + GAP}px`, top: `${r.y + GAP}px`, maxWidth: `${Math.max(1, r.w - 2 * GAP)}px` });
-    else if (right >= left) Object.assign(label.style, { left: `${r.x + r.w + GAP}px`, top: `${r.y}px`, maxWidth: `${right}px` });
-    else Object.assign(label.style, { right: `${D.still.width - left}px`, top: `${r.y}px`, maxWidth: `${left}px` });
+    Object.assign(label.style, placeLabel(D.still.width, D.still.height, r));
     return { e, label };
   });
   const clicks = D.clicks.map(() => element('div', 'ripple', camera));
@@ -103,7 +115,7 @@ html, body, #root { width: ${D.width}px; height: ${D.height}px; overflow: hidden
 #cursor { will-change: opacity; z-index: 3; position: absolute; left: -4px; top: -2px; width: 34px; height: 34px; opacity: 0; overflow: visible; }
 #cursor path { fill: ${c.cursor_fill}; stroke: ${c.cursor_stroke}; }
 .callout { will-change: opacity; z-index: 1; position: absolute; border: 4px solid ${c.highlight}; border-radius: 10px; box-shadow: 0 0 0 5px #0002; opacity: 0; }
-.label { will-change: opacity; z-index: 1; opacity: 0; position: absolute; width: max-content; max-width: ${D.still.width}px; background: ${c.label_background}; color: ${c.label_text}; font-size: 24px; line-height: 1.3; font-weight: ${D.fonts[0]?.weight ?? 400}; padding: 8px 16px; border-radius: 10px; overflow-wrap: anywhere; }
+.label { will-change: opacity; z-index: 1; opacity: 0; position: absolute; overflow: hidden; width: max-content; max-width: ${D.still.width}px; background: ${c.label_background}; color: ${c.label_text}; font-size: 24px; line-height: 1.3; font-weight: ${D.fonts[0]?.weight ?? 400}; padding: 8px 16px; border-radius: 10px; overflow-wrap: anywhere; }
 #chip { will-change: opacity; z-index: 4; position: absolute; left: 2%; top: 3%; max-width: 96%; background: ${c.chip_background}; color: ${c.chip_text}; font-size: ${Math.min(D.width, D.height) * 0.04}px; line-height: 1.3; font-weight: ${D.fonts[0]?.weight ?? 400}; padding: 10px 22px; border-radius: 12px; opacity: 0; }
 .ripple { will-change: opacity; z-index: 2; position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; border: 4px solid ${c.click_ripple}; border-radius: 50%; opacity: 0; transform-origin: center; }
 ${s ? `.caption { will-change: opacity; z-index: 5; position: absolute; left: 50%; ${s.position}: ${s.margin}px; transform: translateX(-50%); width: max-content; max-width: ${s.max_width}px; font-family: ${JSON.stringify(s.font)}; font-size: ${s.size}px; font-weight: ${s.weight}; line-height: 1.3; color: ${s.color}; background: ${s.background === 'none' ? 'transparent' : s.background}; padding: ${s.padding}px; border-radius: ${s.radius}px; text-align: center; overflow-wrap: anywhere; opacity: 0; }` : ''}
@@ -114,7 +126,7 @@ ${s ? `.caption { will-change: opacity; z-index: 5; position: absolute; left: 50
 `;
   return {
     'project/index.html': html, 'project/style.css': css,
-    'project/scene.js': `'use strict';\nconst SCENE = ${json(D).trimEnd()};\n(${mount.toString()})(SCENE, ${stateAt.toString()});\n`
+    'project/scene.js': `'use strict';\nconst SCENE = ${json(D).trimEnd()};\n(${mount.toString()})(SCENE, ${stateAt.toString()}, ${placeLabel.toString()});\n`
   };
 }
-module.exports = { page, stateAt };
+module.exports = { page, stateAt, placeLabel };
