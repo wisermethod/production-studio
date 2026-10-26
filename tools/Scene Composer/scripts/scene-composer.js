@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 'use strict';
 // Keep the launcher in old JavaScript syntax: help precedes the runtime check.
-var USAGE = 'Scene Composer 0.1.0\n' +
+var USAGE = 'Scene Composer 0.2.0\n' +
   'node scripts/scene-composer.js help\n' +
   'node scripts/scene-composer.js --help\n' +
   'node scripts/scene-composer.js compose --spec <file.json> --output <new dir>\n' +
+  'node scripts/scene-composer.js timing --spec <file.json> --output <new dir>\n' +
   'node scripts/scene-composer.js captions --list <file.json> --output <new file.srt>\n' +
   'All paths absolute; each required flag once, with a separate value.\n' +
   'Nothing to install. No configuration. See TOOL.md for the schemas.\n';
@@ -15,13 +16,13 @@ function run(argv, version) {
     if (argv.length !== 1) throw new Error('unknown argument ' + argv[1] + '.' + usage);
     return USAGE;
   }
-  if (command !== 'compose' && command !== 'captions') {
+  if (command !== 'compose' && command !== 'timing' && command !== 'captions') {
     throw new Error((command ? 'unknown command ' + command : 'missing command') + '.' + usage);
   }
   if (Number((version || process.versions.node).split('.')[0]) < 22) {
     throw new Error(command + ' refuses Node ' + (version || process.versions.node) + '; requires Node >=22. Check node --version.');
   }
-  var input = command === 'compose' ? '--spec' : '--list';
+  var input = command === 'captions' ? '--list' : '--spec';
   for (var j = 1; j < argv.length; j++) {
     if (argv[j].charAt(0) === '-' && argv[j] !== input && argv[j] !== '--output') {
       throw new Error('unknown argument ' + argv[j] + '.' + usage);

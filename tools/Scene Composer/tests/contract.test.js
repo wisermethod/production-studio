@@ -14,7 +14,7 @@ function bad(name,change,pattern=/Correct|help/){test(name,t=>{const f=fixture(t
 const seconds=s=>({seconds:s}),word=(s,n=1)=>({word:s,occurrence:n});
 
 test('help before version and no imports on old runtimes',()=>{
-  assert.match(run(['help'],'0.1.0'),/Scene Composer 0.1.0/);
+  assert.match(run(['help'],'0.1.0'),/Scene Composer 0.2.0/);
   assert.match(run(['--help'],'0.1.0'),/--spec/);
   for(const c of ['compose','captions'])assert.throws(()=>run([c],'21.9.0'),new RegExp(`${c} refuses Node 21`));
   for(const c of ['help','--help']){const r=call([c]);assert.equal(r.status,0);assert.equal(r.stderr,'');}

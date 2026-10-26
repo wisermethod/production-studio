@@ -16,6 +16,7 @@ Timeline installs its 35 exact wheel pins, about 95 MB per interpreter, from `py
 | Still and font copies under fixed names | The same output's `project/` directory | Scene Composer |
 | Scene caption track, captions.srt | The same output directory | Scene Composer |
 | Hash manifest and resolved cues, compose.json | The same output directory | Scene Composer |
+| Caption track captions.srt and timing manifest timing.json | New caller-named `timing --output` directory | Scene Composer |
 | Joined caption track | New caller-named `--output` SRT file | Scene Composer |
 | Output directory with cut.mp4, cut.otio, kinocut-receipt.json and record.json | New caller-named `--output` directory | Timeline |
 | Sources, intermediate clips, cutfile and isolated home, cache and temporary files | New hidden `.timeline-work-<random>` sibling of output, removed on success and failure; a forced kill can leave it | Timeline |
@@ -29,7 +30,7 @@ Timeline installs its 35 exact wheel pins, about 95 MB per interpreter, from `py
 
 | Tool | Description |
 |------|-------------|
-| `Scene Composer/TOOL.md` | Composes one still walkthrough scene into a seek-driven HTML project with frame-aligned SRT captions and joins scene caption tracks |
+| `Scene Composer/TOOL.md` | Composes one still walkthrough scene into a seek-driven HTML project, writes a scene's caption track and timing from its narration alone, and joins scene caption tracks |
 | `Timeline/TOOL.md` | Cuts silent recordings to exact planned frames and writes a BT.709 video, an OpenTimelineIO timeline and processing records |
 
 <!-- /generated:index -->

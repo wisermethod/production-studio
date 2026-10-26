@@ -64,13 +64,13 @@ function fontFile(buffer) {
   if (!ext || buffer.length < 12) fail('font must be a WOFF2, WOFF, TrueType or OpenType file');
   return ext;
 }
-function normalize(spec) {
-  object(spec, 'spec', ['frame','still','take','duration','lead','tail','fonts','colors','chip','cursor','clicks','camera','callouts','captions'], ['frame','still']);
-  object(spec.frame, 'frame', ['width','height','fps']);
-  const fw = integer(spec.frame.width, 'frame.width', 2), fh = integer(spec.frame.height, 'frame.height', 2), fps = integer(spec.frame.fps, 'frame.fps', 1);
+function sceneFrame(value) {
+  object(value, 'frame', ['width','height','fps']);
+  const fw = integer(value.width, 'frame.width', 2), fh = integer(value.height, 'frame.height', 2), fps = integer(value.fps, 'frame.fps', 1);
   if (fw % 2 || fh % 2) fail('frame width and height must be even');
-  object(spec.still, 'still', ['path']);
-  const still = bytes(screen(spec.still.path, 'still.path')), size = image(still);
+  return { fw, fh, fps };
+}
+function sceneTiming(spec, fps) {
   const lead = number(fallback(spec.lead, q('0.25')), 'lead'), tail = number(fallback(spec.tail, q('0.5')), 'tail');
   let timings = [], length;
   if (spec.take !== undefined) {
@@ -95,7 +95,6 @@ function normalize(spec) {
     length = number(spec.duration, 'duration', true);
   }
   const frames = frame(lead.add(length).add(tail), fps), end = new Q(BigInt(frames), BigInt(fps));
-  const events = [];
   function at(v, name) {
     object(v, name, ['word','occurrence','seconds'], []);
     let time, index = null;
@@ -110,14 +109,60 @@ function normalize(spec) {
     if (time.cmp(end) > 0) fail(`${name} is past the scene end`);
     return { time, frame: frame(time, fps), index };
   }
-  function event(v, name, kind) {
-    const e = at(v, name); events.push({ kind, seconds: Number(e.time), frame: e.frame }); return e;
-  }
   function ordered(items, name, strictFrames = false) {
     for (let i = 1; i < items.length; i++) {
       if (items[i].time.cmp(items[i-1].time) < 0) fail(`${name} events are out of time order`);
       if (strictFrames && items[i].frame <= items[i-1].frame) fail(`${name} arrivals need distinct increasing frames`);
     }
+  }
+  return { lead, tail, timings, fps, frames, end, at, ordered };
+}
+function captionCues(captions, clock, resolve = clock.at) {
+  const { lead, timings, fps, frames, end, ordered } = clock;
+  const lines = list(fallback(captions.lines, []), 'captions.lines').map(v => {
+    object(v, 'caption', ['text','at']);
+    const t = text(v.text, 'caption.text'), a = resolve(v.at, 'caption.at');
+    return { ...a, text: t };
+  }); ordered(lines, 'captions', true);
+  // Caption text is not matched to the take: a line may show a written form, such as an address, that the narration
+  // says aloud differently. The last line holds until the take's last word ends, plus 0.6 seconds.
+  let lastEnd = null;
+  for (const w of timings) { const e = lead.add(w.end).add(q('0.6')); if (lastEnd === null || e.cmp(lastEnd) > 0) lastEnd = e; }
+  if (lastEnd === null) lastEnd = end;
+  const cues = lines.map((line, i) => {
+    const endFrame = i + 1 < lines.length ? lines[i+1].frame : Math.min(frames, frame(lastEnd, fps));
+    if (endFrame <= line.frame) fail('caption has no frames before its end');
+    return { text: line.text, start_frame: line.frame, end_frame: endFrame, start: line.frame / fps, end: endFrame / fps };
+  });
+  return cues;
+}
+function normalizeTiming(spec) {
+  object(spec, 'spec', ['frame','take','duration','lead','tail','captions','marks'], ['frame']);
+  const { fps } = sceneFrame(spec.frame), clock = sceneTiming(spec, fps);
+  const captions = fallback(spec.captions, {});
+  object(captions, 'captions', ['lines'], []);
+  const cues = captionCues(captions, clock), names = new Set();
+  const marks = list(fallback(spec.marks, []), 'marks').map(v => {
+    object(v, 'mark', ['name','at']);
+    const name = text(v.name, 'mark.name');
+    if (names.has(name)) fail(`duplicate mark name ${JSON.stringify(name)}`);
+    names.add(name);
+    const label = `mark ${JSON.stringify(name)}`, resolved = clock.at(v.at, `${label}.at`);
+    const product = resolved.time.mul(fps), after = product.n / product.d + 1n;
+    if (after >= BigInt(clock.frames)) fail(`${label} has no frame past its time inside the scene`);
+    return { name, seconds: Number(resolved.time), frame: resolved.frame, frame_after: Number(after) };
+  });
+  return { fps, frames: clock.frames, duration: clock.frames / fps, lead: Number(clock.lead), tail: Number(clock.tail), marks, cues };
+}
+function normalize(spec) {
+  object(spec, 'spec', ['frame','still','take','duration','lead','tail','fonts','colors','chip','cursor','clicks','camera','callouts','captions'], ['frame','still']);
+  const { fw, fh, fps } = sceneFrame(spec.frame);
+  object(spec.still, 'still', ['path']);
+  const still = bytes(screen(spec.still.path, 'still.path')), size = image(still);
+  const clock = sceneTiming(spec, fps), { frames, at, ordered } = clock;
+  const events = [];
+  function event(v, name, kind) {
+    const e = at(v, name); events.push({ kind, seconds: Number(e.time), frame: e.frame }); return e;
   }
   function point(v, name, keys = ['x','y']) {
     object(v, name, keys);
@@ -197,22 +242,8 @@ function normalize(spec) {
     style.weight = integer(s.weight, 'captions.style.weight', 1);
     if (style.weight > 1000 || style.max_width > fw || style.margin * 2 >= fh) fail('captions style exceeds frame or weight bounds');
   }
-  const lines = list(fallback(captions.lines, []), 'captions.lines').map(v => {
-    object(v, 'caption', ['text','at']);
-    const t = text(v.text, 'caption.text'), a = event(v.at, 'caption.at', 'caption');
-    return { ...a, text: t };
-  }); ordered(lines, 'captions', true);
-  // Caption text is not matched to the take: a line may show a written form, such as an address, that the narration
-  // says aloud differently. The last line holds until the take's last word ends, plus 0.6 seconds.
-  let lastEnd = null;
-  for (const w of timings) { const e = lead.add(w.end).add(q('0.6')); if (lastEnd === null || e.cmp(lastEnd) > 0) lastEnd = e; }
-  if (lastEnd === null) lastEnd = end;
-  const cues = lines.map((line, i) => {
-    const endFrame = i + 1 < lines.length ? lines[i+1].frame : Math.min(frames, frame(lastEnd, fps));
-    if (endFrame <= line.frame) fail('caption has no frames before its end');
-    return { text: line.text, start_frame: line.frame, end_frame: endFrame, start: line.frame / fps, end: endFrame / fps };
-  });
-  if ((chip || callouts.length || (mode === 'drawn' && lines.length)) && !fonts.length) fail('drawn text requires at least one font');
+  const cues = captionCues(captions, clock, (v, name) => event(v, name, 'caption'));
+  if ((chip || callouts.length || (mode === 'drawn' && cues.length)) && !fonts.length) fail('drawn text requires at least one font');
   // The browser receives only normalized scene data, never input paths or take metadata.
   function cleanMove(m) { const { time, index, lastEnd, ...rest } = m; return rest; }
   const data = {
@@ -223,4 +254,4 @@ function normalize(spec) {
   };
   return { data, assets, events, cues };
 }
-module.exports = { normalize, object, list, number, image, COLORS };
+module.exports = { normalize, normalizeTiming, object, list, number, image, COLORS };
