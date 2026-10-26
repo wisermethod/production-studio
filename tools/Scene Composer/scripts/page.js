@@ -53,12 +53,18 @@ function mount(D, stateAt) {
     if (text !== undefined) e.textContent = text;
     parent.appendChild(e); return e;
   }
+  // A label is placed from the rectangle and the still alone, never from a measured width, so its place cannot depend on
+  // whether a font had loaded when a seek ran: it sits beside the rectangle on the side with more room, as wide as that
+  // room allows, and wraps; with under 80 pixels either side it sits inside the rectangle's top left corner.
+  const GAP = 12, MIN = 80;
   const callouts = D.callouts.map(c => {
-    const e = element('div', 'callout', camera);
-    Object.assign(e.style, { left: `${c.rect.x}px`, top: `${c.rect.y}px`, width: `${c.rect.w}px`, height: `${c.rect.h}px` });
-    const label = element('div', 'label', e, c.label);
-    // Local geometry, measured afresh at every seek after fonts have loaded.
-    return { e, label, rect: c.rect };
+    const r = c.rect, e = element('div', 'callout', camera), label = element('div', 'label', camera, c.label);
+    Object.assign(e.style, { left: `${r.x}px`, top: `${r.y}px`, width: `${r.w}px`, height: `${r.h}px` });
+    const right = D.still.width - (r.x + r.w + GAP), left = r.x - GAP;
+    if (Math.max(right, left) < MIN) Object.assign(label.style, { left: `${r.x + GAP}px`, top: `${r.y + GAP}px`, maxWidth: `${Math.max(1, r.w - 2 * GAP)}px` });
+    else if (right >= left) Object.assign(label.style, { left: `${r.x + r.w + GAP}px`, top: `${r.y}px`, maxWidth: `${right}px` });
+    else Object.assign(label.style, { right: `${D.still.width - left}px`, top: `${r.y}px`, maxWidth: `${left}px` });
+    return { e, label };
   });
   const clicks = D.clicks.map(() => element('div', 'ripple', camera));
   const captions = D.captions.mode === 'drawn' ? D.captions.cues.map(c => element('div', 'caption', get('root'), c.text)) : [];
@@ -70,15 +76,7 @@ function mount(D, stateAt) {
     if (D.cursor) get('cursor').style.transform = `translate(${s.cursor.x}px,${s.cursor.y}px)`;
     get('cursor').style.opacity = D.cursor ? '1' : '0';
     get('chip').style.opacity = String(s.chip);
-    callouts.forEach((c, i) => {
-      c.e.style.opacity = String(s.callouts[i]);
-      const w = c.label.offsetWidth, h = c.label.offsetHeight, gap = 12;
-      let x = c.rect.x + c.rect.w + gap;
-      if (x + w > D.still.width) x = c.rect.x - gap - w;
-      x = Math.max(0, Math.min(D.still.width - w, x));
-      const y = Math.max(0, Math.min(D.still.height - h, c.rect.y));
-      c.label.style.left = `${x - c.rect.x}px`; c.label.style.top = `${y - c.rect.y}px`;
-    });
+    callouts.forEach((c, i) => { c.e.style.opacity = c.label.style.opacity = String(s.callouts[i]); });
     clicks.forEach((e, i) => {
       const c = s.clicks[i]; e.style.opacity = String(c.opacity);
       e.style.transform = `translate(${c.x}px,${c.y}px) scale(${c.scale})`;
@@ -101,11 +99,11 @@ function page(D) {
 html, body, #root { width: ${D.width}px; height: ${D.height}px; overflow: hidden; }
 #root { position: relative; background: ${c.background}; font-family: ${family}; }
 #camera { position: absolute; left: 0; top: 0; width: ${D.still.width}px; height: ${D.still.height}px; transform-origin: 0 0; }
-#still { display: block; width: 100%; height: 100%; border-radius: 8px; box-shadow: 0 16px 48px #0006; }
+#still { image-orientation: none; display: block; width: 100%; height: 100%; border-radius: 8px; box-shadow: 0 16px 48px #0006; }
 #cursor { will-change: opacity; z-index: 3; position: absolute; left: -4px; top: -2px; width: 34px; height: 34px; opacity: 0; overflow: visible; }
 #cursor path { fill: ${c.cursor_fill}; stroke: ${c.cursor_stroke}; }
 .callout { will-change: opacity; z-index: 1; position: absolute; border: 4px solid ${c.highlight}; border-radius: 10px; box-shadow: 0 0 0 5px #0002; opacity: 0; }
-.label { position: absolute; width: max-content; max-width: ${D.still.width}px; background: ${c.label_background}; color: ${c.label_text}; font-size: 24px; line-height: 1.3; font-weight: ${D.fonts[0]?.weight ?? 400}; padding: 8px 16px; border-radius: 10px; overflow-wrap: anywhere; }
+.label { will-change: opacity; z-index: 1; opacity: 0; position: absolute; width: max-content; max-width: ${D.still.width}px; background: ${c.label_background}; color: ${c.label_text}; font-size: 24px; line-height: 1.3; font-weight: ${D.fonts[0]?.weight ?? 400}; padding: 8px 16px; border-radius: 10px; overflow-wrap: anywhere; }
 #chip { will-change: opacity; z-index: 4; position: absolute; left: 2%; top: 3%; max-width: 96%; background: ${c.chip_background}; color: ${c.chip_text}; font-size: ${Math.min(D.width, D.height) * 0.04}px; line-height: 1.3; font-weight: ${D.fonts[0]?.weight ?? 400}; padding: 10px 22px; border-radius: 12px; opacity: 0; }
 .ripple { will-change: opacity; z-index: 2; position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; border: 4px solid ${c.click_ripple}; border-radius: 50%; opacity: 0; transform-origin: center; }
 ${s ? `.caption { will-change: opacity; z-index: 5; position: absolute; left: 50%; ${s.position}: ${s.margin}px; transform: translateX(-50%); width: max-content; max-width: ${s.max_width}px; font-family: ${JSON.stringify(s.font)}; font-size: ${s.size}px; font-weight: ${s.weight}; line-height: 1.3; color: ${s.color}; background: ${s.background === 'none' ? 'transparent' : s.background}; padding: ${s.padding}px; border-radius: ${s.radius}px; text-align: center; overflow-wrap: anywhere; opacity: 0; }` : ''}

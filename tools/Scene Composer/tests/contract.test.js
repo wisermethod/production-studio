@@ -94,6 +94,14 @@ test('caption text may differ from the spoken words, and the last line holds pas
   assert.match(srt,/Open wisermemory\.com\/install/);assert.match(srt,/Save it: Ctrl\+S/);
   assert.equal(r.captions[1].end_frame,147);
 });
+bad('duplicate key in the take record',(s,f)=>fs.writeFileSync(s.take.record,JSON.stringify(f.record).replace('"timings":','"timings":[],"timings":')),/duplicate key timings/);
+test('the still is drawn unrotated, and labels are placed without measuring',t=>{
+  const f=fixture(t);f.spec.fonts=[f.font];f.spec.callouts=[{rect:{x:10,y:10,w:20,h:20},label:'Right',at:seconds(0),until:seconds(1)},{rect:{x:120,y:10,w:30,h:20},label:'Left',at:seconds(0),until:seconds(1)},{rect:{x:40,y:10,w:80,h:20},label:'Inside',at:seconds(0),until:seconds(1)}];
+  ok(compose(f));
+  const css=fs.readFileSync(path.join(f.output,'project','style.css'),'utf8'),js=fs.readFileSync(path.join(f.output,'project','scene.js'),'utf8');
+  assert.match(css,/#still \{ image-orientation: none;/);
+  assert.doesNotMatch(js,/offsetWidth|offsetHeight|getBoundingClientRect/);
+});
 test('no take, empty SRT, explicit seconds captions and scene-end cap',t=>{
   const f=fixture(t);delete f.spec.take;f.spec.duration=0.41;
   let r=ok(compose(f));assert.equal(r.frames,13);assert.equal(fs.readFileSync(path.join(f.output,'captions.srt'),'utf8'),'');

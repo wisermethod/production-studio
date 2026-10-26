@@ -76,7 +76,7 @@ function normalize(spec) {
   if (spec.take !== undefined) {
     if (spec.duration !== undefined) fail('take and duration are mutually exclusive');
     object(spec.take, 'take', ['record']);
-    const record = parse(utf8(bytes(screen(spec.take.record, 'take.record'))), false);
+    const record = parse(utf8(bytes(screen(spec.take.record, 'take.record'))));
     if (!record || !Array.isArray(record.timings) || !record.aligned_file || !record.delay) fail('take record requires timings, aligned_file.sample_count and delay.sample_rate');
     const count = integer(record.aligned_file.sample_count, 'aligned_file.sample_count', 1);
     const rate = integer(record.delay.sample_rate, 'delay.sample_rate', 1);
