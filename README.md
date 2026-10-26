@@ -16,5 +16,7 @@ Production Studio loads beside the base plugin `wiser`, which carries the connec
 - **A voice clone** (`skills/Set Up Voice Clone/`): an xAI account where xAI offers voice clones, today the United States except Illinois. The person whose voice clone it is records it in xAI's console; the plugin takes no recording of anyone.
 - **Scripts** (`skills/Write Script/`): stills of the product's steps, taken for the script. Nothing to install.
 - **Cutting recordings** (`tools/Timeline/`): Python 3.11 to 3.13, an Apple Silicon Python on a Mac, and FFmpeg with libx264 and ffprobe. With your consent it installs its packages, about 95 MB, into its own folder.
+- **Walkthrough scenes** (`tools/Scene Composer/`): Node 22 or later, and the font files the scene's text uses. Nothing to install. Its scenes render through `wiser`'s `video-render`, which installs HyperFrames and its own Chrome once, when you allow it.
+- **Publishing** (`skills/Publish Video/`): an app that can attach Wiser's local gateway, with `wiser`'s YouTube connector connected to your own channel through your own Google app. It also needs FFmpeg with ffprobe for the thumbnail's frame, and `wiser`'s `render` for the thumbnail. A custom thumbnail needs a verified channel, and chapters show once the channel has YouTube's Advanced features. Uploading is free; it uses your Google project's daily quota.
 
 Narration is billed by xAI, per character; the skill tells you the cost before any call.
