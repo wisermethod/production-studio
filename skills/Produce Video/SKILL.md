@@ -111,7 +111,7 @@ Fix the capture plan under Scene plan. Does `capture/terms.json` already hold th
 
 ### 4. The capture
 
-Load Screen Capture in `wiser` and apply its Quick Start host decision before any capture, web stills included because their redaction and the finished-video check need native macOS. A sandbox host such as Cowork, an untested launcher or missing permissions: stop with the tool's named human step before driving anything. A supported native host with setup complete: continue.
+Load Screen Capture in `wiser` and run its `check` before any capture. Every production needs it on macOS, with the packages and programs that `check` reports, for redaction and the finished-video check; a host that is not macOS, a sandbox such as Cowork among them, stops here, naming what is missing. Does the capture plan drive a macOS app? Yes: apply Screen Capture's Quick Start host decision as well, before driving it; an untested launcher or a missing permission stops with the tool's named human step. No, a web product only: Browser Control drives it, and Screen Capture's desktop permissions and launching app do not apply. Otherwise continue.
 
 Write one replayable recipe per walkthrough under `<production>/capture/recipes/`. For a web product it states the address, viewport, actions, initial pointer point, regions and which labelled thing is clicked after its still. For a macOS app it contains a Screen Capture recipe in that tool's exact Recipe JSON shape, plus capture metadata: every labelled thing's window-relative `x`, `y`, `w`, `h`, the pointer start and the click after the still. Save the executable Screen Capture object separately for `run`; pass no metadata keys to that command. A recipe changes: keep the earlier file and use a new recipe path in the plan.
 
