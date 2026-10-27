@@ -3,7 +3,7 @@ name: Animate Scenes
 type: skill
 category: media
 description: Supplied walkthrough and explainer scenes animated to their narration's word cues, rendered as video segments with captions and a scene record, each ready only after the Animator's review
-version: 0.1.0
+version: 0.1.1
 memory:
   - design
 gaps:
