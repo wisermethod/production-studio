@@ -35,7 +35,6 @@ function stage(o) {
   const fd = fs.openSync(output,'r'); try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
   M.matches(output,expected); M.matches(source,expected);
   if (o.route === 'elevenlabs') fs.unlinkSync(source);
-  M.matches(output,expected);
   return {ok:true,route:o.route,scene:o.scene,cid:id,source:output,file:expected};
 }
 function prepared(v, rt) {
@@ -74,16 +73,24 @@ function fileUnlocked(o) {
   const pcm = I.json(o.pcm);
   M.object(pcm,'PCM descriptor',['ok','usable','basis','removed','stated','rate','channels','codec','time_base','sample_count','bytes','sha256','output','source']);
   M.object(pcm.source,'PCM source',['path','before','after']);
-  if (pcm.ok !== true || pcm.usable !== true) fail('PCM descriptor is unusable; keep staged evidence and finish audio preparation before filing');
+  if (pcm.ok !== true || typeof pcm.usable !== 'boolean') fail('PCM descriptor must report its usable state');
   if (I.regular(pcm.source.path) !== expectedSource || !I.equal(pcm.source.before,st.file) || !I.equal(pcm.source.after,st.file)) fail('PCM source identity differs from staged source');
-  if (I.regular(pcm.output) !== path.join(dir,st.cid+'.wav')) fail('PCM output must be cid.wav beside the source');
-  const a = M.wav(pcm.output);
-  if (pcm.codec !== a.codec_name || pcm.rate !== a.rate || pcm.channels !== a.channels || pcm.time_base !== a.time_base || pcm.sample_count !== a.duration_ts) fail('PCM descriptor differs from WAV readback');
+  let a;
+  if (pcm.usable) {
+    if (I.regular(pcm.output) !== path.join(dir,st.cid+'.wav')) fail('PCM output must be cid.wav beside the source');
+    a = M.wav(pcm.output);
+    M.matches(pcm.output,{bytes:pcm.bytes,sha256:pcm.sha256});
+    if (pcm.codec !== a.codec_name || pcm.rate !== a.rate || pcm.channels !== a.channels || pcm.time_base !== a.time_base || pcm.sample_count !== a.duration_ts) fail('PCM descriptor differs from WAV readback');
+  } else if (['codec','time_base','sample_count','bytes','sha256','output'].some(k => pcm[k] !== null)) {
+    fail('unusable PCM descriptor must have null WAV fields; retain the source for completion');
+  }
+  const src = M.sourceClock(expectedSource);
+  if (pcm.rate !== src.rate || pcm.channels !== src.channels) fail('PCM descriptor differs from source clock');
   const record = {scene:st.scene,cid:st.cid,route:st.route,action:call.action,inputs:call.inputs,
     text:p.script.text,text_sha256:p.script.sha256,characters:p.submitted.code_points,
-    duration:a.duration_ts/a.rate,file:st.file,date_filed:new Date().toISOString().slice(0,10),timings:I.json(o.timings),
+    duration:a ? a.duration_ts/a.rate : src.samples/src.rate,file:st.file,date_filed:new Date().toISOString().slice(0,10),timings:I.json(o.timings),
     delay:{samples_removed:pcm.removed,sample_rate:pcm.rate,basis:pcm.basis,stated_skip_samples:pcm.stated},
-    aligned_file:{name:st.cid+'.wav',bytes:pcm.bytes,sha256:pcm.sha256,sample_count:pcm.sample_count}};
+    aligned_file:a ? {name:st.cid+'.wav',bytes:pcm.bytes,sha256:pcm.sha256,sample_count:pcm.sample_count} : null};
   if (o.check) record.check = I.json(o.check);
   let oldBytes = null;
   if (I.stat(recordPath)) {
@@ -94,23 +101,28 @@ function fileUnlocked(o) {
     const old = I.parse(I.utf8(oldBytes));
     if (!Object.hasOwn(old,'route')) fail('legacy takes are read-only and are never rewritten');
     // Completion cannot replace a check already decided or any original evidence.
-    for (const key of Object.keys(old)) if (!['date_filed'].includes(key) && !I.equal(old[key],record[key])) fail('completion would change existing take evidence; retain it');
+    const completingAudio = old.aligned_file === null && record.aligned_file !== null;
+    for (const key of Object.keys(old)) {
+      if (key === 'date_filed' || (completingAudio && ['delay','aligned_file','duration'].includes(key))) continue;
+      if (!I.equal(old[key],record[key])) fail('completion would change existing take evidence; retain it');
+    }
     record.date_filed = old.date_filed;
   } else if (o.expected) fail('expected prior take is absent; reread before completion');
   M.validateData(o.production,recordPath,record);
   if (oldBytes) replace(recordPath,I.encode(record),oldBytes);
-  else I.writeNew(recordPath,I.encode(record));
+  else replace(recordPath,I.encode(record),null);
   return M.validateRecord(o.production,recordPath);
 }
 // Transaction siblings are in the same directory. The lock serializes this
 // tool's writers; snapshots also catch changes from writers that do not lock.
 function replace(target, bytes, prior) {
   const temp = I.destination(path.join(path.dirname(target),'.narration-takes-'+I.crypto.randomUUID()+'.tmp'));
-  I.writeNew(temp,bytes);
+  let created = false;
   try {
+    I.writeNew(temp,bytes); created = true;
     if (prior === null ? I.stat(target) !== null : !I.read(target).equals(prior)) fail('changed prior state; reread the record and retry');
     fs.renameSync(temp,target);
-  } finally { if (I.stat(temp)) fs.unlinkSync(temp); }
+  } finally { if (created && I.stat(temp)) fs.unlinkSync(temp); }
 }
 function locked(dir, run) {
   const lock = I.canonical(path.join(dir,'.narration-takes.lock'));
@@ -119,14 +131,18 @@ function locked(dir, run) {
 }
 function validate(o) {
   const requested = o.settings ? I.json(o.settings) : undefined;
-  const result = M.validateRecord(o.production,o.record,requested);
+  const record = I.json(o.record);
+  let applicable = requested;
   const regPath = path.join(narration(o.production),'narration.json');
   if (I.stat(regPath)) {
     if (I.regular(regPath) !== regPath) fail('narration.json must stay at its production path');
     const reg = I.json(regPath); M.registry(reg);
-    if (reg.scenes[result.scene]?.cid === result.cid) M.settingsMatch(reg.settings,I.json(o.record));
+    if (reg.scenes[record.scene]?.cid === record.cid) {
+      M.settingsMatch(reg.settings,record);
+      if (!applicable) applicable = reg.settings;
+    }
   }
-  return result;
+  return M.validateRecord(o.production,o.record,applicable);
 }
 function current(o) {
   const dir = narration(o.production), regPath = I.destination(path.join(dir,'narration.json'),false);

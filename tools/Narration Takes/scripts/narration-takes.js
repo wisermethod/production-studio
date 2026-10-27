@@ -37,7 +37,10 @@ function run(argv) {
   const I = require('./io.js');
   // All caller paths are screened before the first input is read or write runs.
   for (const k of ['production','source','stage','prepared','pcm','timings','call','check','expected','record','settings'])
-    if (o[k] !== undefined) I.canonical(o[k]);
+    if (o[k] !== undefined) {
+      if (cmd === 'stage' && k === 'source' && I.stat(o[k])?.isSymbolicLink()) throw new Error('source must not be a symbolic link');
+      o[k] = I.canonical(o[k]);
+    }
   if (cmd === 'stage' && !/^[1-9]\d*$/.test(o.bytes)) throw new Error('--bytes must be a positive integer; use the source answer');
   const M = require('./model.js');
   if (cmd !== 'stage') M.dependency();

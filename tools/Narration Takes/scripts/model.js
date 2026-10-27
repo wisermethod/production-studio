@@ -1,6 +1,7 @@
 'use strict';
 const { spawnSync } = require('node:child_process');
 const I = require('./io.js');
+const Q = require('./rational.js');
 const { fail, path, fs, equal } = I;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function object(v, name, required, optional = []) {
@@ -90,7 +91,6 @@ function settingsMatch(v, record) {
   if (!equal(facts,takeFacts)) fail('settings differ from the take inputs');
   if (r === 'xai' && l !== record.inputs.language) fail('settings language differs from legacy take');
   if (record.check?.result === 'unchecked' && l !== record.check.language) fail('unchecked language differs from settings');
-  if (record.check?.result === 'pass' && !english(l)) fail('only English may carry a passing check; use Narrate\'s unchecked state');
 }
 function registry(v) {
   object(v,'narration.json',['settings','scenes']); settings(v.settings); object(v.scenes,'scenes',[],Object.keys(v.scenes || {}));
@@ -126,14 +126,25 @@ function wav(file) {
   if (s.codec_name !== 'pcm_s16le' || s.bits_per_sample !== 16 || s.time_base !== '1/'+s.rate) fail('aligned WAV must be 16-bit PCM on a 1/sample_rate clock');
   integer(s.duration_ts,'WAV sample count',1); return s;
 }
+function decodedSamples(file) {
+  const result = spawnSync('ffprobe',['-v','error','-protocol_whitelist','file,pipe','-f','mp3',
+    '-select_streams','a:0','-show_frames','-show_entries','frame=nb_samples','-of','json',I.regular(file)],
+    {encoding:'utf8',maxBuffer:16*1024*1024,timeout:30000});
+  if (result.error || result.status !== 0 || result.stderr) fail('ffprobe could not read the decoded source clock');
+  const answer = I.parse(result.stdout);
+  if (!Array.isArray(answer.frames) || !answer.frames.length) fail('source has no decoded audio samples');
+  const samples = answer.frames.reduce((total,frame) => total + integer(frame.nb_samples,'decoded frame samples',1),0);
+  return integer(samples,'decoded source sample count',1);
+}
 function sourceClock(file) {
   const s = probe(file,true);
   if (path.extname(file).toLowerCase() === '.wav') {
     if (!/^pcm_/.test(s.codec_name) || s.time_base !== '1/'+s.rate) fail('source WAV must be PCM on its sample clock');
     integer(s.duration_ts,'source samples',1);
-    return {...s, basis:'pcm', removed:0, stated:null};
+    return {...s, samples:s.duration_ts, basis:'pcm', removed:0, stated:null};
   }
   if (s.codec_name !== 'mp3') fail('source MP3 codec mismatch');
+  s.samples = decodedSamples(file);
   const side = (s.packets?.[0]?.side_data_list || []).filter(x => x.side_data_type === 'Skip Samples');
   if (side.length > 1) fail('ambiguous MP3 Skip Samples');
   if (side.length) { integer(side[0].skip_samples,'stated skip'); return {...s,basis:'header_skip_samples',removed:0,stated:side[0].skip_samples}; }
@@ -141,6 +152,20 @@ function sourceClock(file) {
   return {...s,basis:'unknown',removed:0,stated:null};
 }
 function recordSource(dir, record) { return path.join(dir,record.cid+(record.route === 'chatterbox' ? '.source.wav' : '.mp3')); }
+function transcriptPath(dir, id, name, legacy = false) {
+  string(name,'transcript');
+  const prefix = id + '-transcript-';
+  if (!name.startsWith(prefix) || !/^\d{4}-\d\d-\d\d\.txt$/.test(name.slice(prefix.length))) fail('transcript name must match this cid and transcript date');
+  const date = name.slice(prefix.length,-4);
+  if (!Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0,10) !== date) fail('transcript name must contain a calendar date');
+  const named = path.join(dir,name), file = I.regular(named);
+  const text = I.utf8(I.read(file));
+  if (file !== named || !text.trim()) fail('transcript must be present and nonempty beside the take');
+  // Transcribe Audio's artifact has a header and a nonempty speech body. The
+  // audio basename in retained/copy-filed evidence may predate this local cid.
+  if (!legacy && !/^TRANSCRIPT\r?\n\r?\nAudio file: [^\r\n]+\.wav\r?\nTranscribed: \d{4}-\d\d-\d\d \d\d:\d\d:\d\d\r?\nModel: [^\r\n]+\r?\n\r?\n\s*\S/.test(text)) fail('transcript format must have Transcribe Audio header and speech body');
+  return file;
+}
 function validateRecord(production, recordPath, providedSettings) {
   const resolved = I.regular(recordPath), record = I.json(resolved);
   const verdict = validateData(production, resolved, record, providedSettings);
@@ -162,15 +187,16 @@ function validateData(production, resolved, r, providedSettings) {
   if (I.regular(source) !== source || I.stat(source).isSymbolicLink()) fail('take source must be a regular file at its filed path');
   matches(source,r.file); const src = sourceClock(source);
   if (rt === 'chatterbox' && src.codec_name !== 'pcm_s24le') fail('Chatterbox source must retain its original 24-bit PCM WAV');
-  let length = r.duration, usable = false;
+  let length = Q.decimal(I.numberText(r,'duration')), usable = false;
   if (Object.hasOwn(r,'delay')) {
     object(r.delay,'delay',['samples_removed','sample_rate','basis','stated_skip_samples']);
     integer(r.delay.samples_removed,'samples_removed'); integer(r.delay.sample_rate,'sample_rate',1);
     if (r.delay.stated_skip_samples !== null) integer(r.delay.stated_skip_samples,'stated_skip_samples');
-    if (!equal(r.delay,{samples_removed:src.removed,sample_rate:src.rate,basis:src.basis,stated_skip_samples:src.stated})) fail('delay differs from the source readback');
-    if (!Object.hasOwn(r,'aligned_file')) fail('delay requires aligned_file, null only for unknown');
-    if (src.basis === 'unknown') { if (r.aligned_file !== null) fail('unknown delay cannot have aligned audio'); }
-    else {
+    const unknown = r.delay.basis === 'unknown' && r.delay.samples_removed === 0 && r.delay.sample_rate === src.rate && r.delay.stated_skip_samples === null;
+    if (!unknown && !equal(r.delay,{samples_removed:src.removed,sample_rate:src.rate,basis:src.basis,stated_skip_samples:src.stated})) fail('delay differs from the source readback');
+    if (!Object.hasOwn(r,'aligned_file')) fail('delay requires aligned_file, null for unknown or unfinished audio');
+    if (r.delay.basis === 'unknown' && r.aligned_file !== null) fail('unknown delay cannot have aligned audio');
+    if (r.aligned_file !== null) {
       object(r.aligned_file,'aligned_file',['name','bytes','sha256','sample_count']);
       if (r.aligned_file.name !== r.cid+'.wav') fail('aligned filename must match cid');
       integer(r.aligned_file.sample_count,'sample_count',1);
@@ -179,20 +205,22 @@ function validateData(production, resolved, r, providedSettings) {
       matches(aligned,{bytes:r.aligned_file.bytes,sha256:r.aligned_file.sha256}); const a = wav(aligned);
       if (a.rate !== src.rate || a.channels !== src.channels || a.duration_ts !== r.aligned_file.sample_count) fail('aligned WAV clock differs from source or record');
       if (src.basis === 'pcm' && src.duration_ts !== a.duration_ts) fail('PCM conversion changed sample count');
-      length = a.duration_ts / a.rate;
+      if (src.basis !== 'pcm' && Math.abs(a.duration_ts - (src.samples-src.removed)) > 1152) fail('aligned sample count differs from decoded source clock by more than one MP3 frame');
+      length = [BigInt(a.duration_ts),BigInt(a.rate)];
       // The legacy duration was supplied by xAI, before delay preparation.
       // Only new routes promise the measured aligned duration. All routes'
       // timing bounds still use the actual aligned sample clock below.
-      if (rt !== 'xai' && Math.abs(r.duration-length) > 1e-9) fail('duration differs from aligned sample clock');
+      if (rt !== 'xai' && Math.abs(r.duration-a.duration_ts/a.rate) > 1e-9) fail('duration differs from aligned sample clock');
       usable = true;
     }
   } else if (Object.hasOwn(r,'aligned_file')) fail('aligned_file without delay');
   if (!Array.isArray(r.timings) || r.timings.length !== tokens.length) fail('timings must contain every script token once');
-  let previous = 0;
+  let previous = [0n,1n];
   r.timings.forEach((t,i) => {
     object(t,'timing',['text','start','end']); number(t.start,'word start'); number(t.end,'word end');
     if (t.text !== tokens[i]) fail('timing token differs from original script spelling or order');
-    if (t.start < previous || t.start > t.end || t.end > length) fail('word timing is reversed, unordered or past the take length'); previous = t.start;
+    const start = Q.decimal(I.numberText(t,'start')), end = Q.decimal(I.numberText(t,'end'));
+    if (Q.compare(start,[0n,1n]) < 0 || Q.compare(end,[0n,1n]) < 0 || Q.compare(start,previous) < 0 || Q.compare(start,end) > 0 || Q.compare(start,length) > 0 || Q.compare(end,length) > 0) fail('word timing is negative, reversed, unordered or past the take length'); previous = start;
   });
   if (r.check !== undefined) {
     if (r.check?.result === 'unchecked') {
@@ -202,10 +230,7 @@ function validateData(production, resolved, r, providedSettings) {
     } else {
       object(r.check,'check',['result','transcript']);
       if (!['pass','fail'].includes(r.check.result)) fail('check result must be pass, fail or unchecked');
-      string(r.check.transcript,'transcript');
-      if (path.basename(r.check.transcript) !== r.check.transcript || r.check.transcript === '.' || r.check.transcript === '..' || !/\.txt$/i.test(r.check.transcript)) fail('transcript must be a text filename beside the take');
-      const transcript = I.regular(path.join(dir,r.check.transcript));
-      if (!I.inside(transcript,dir) || !I.utf8(I.read(transcript)).trim()) fail('transcript must be present and nonempty beside the take');
+      transcriptPath(dir,r.cid,r.check.transcript,rt === 'xai');
       if (rt === 'xai' && !english(r.inputs.language) && r.check.result === 'pass') fail('non-English take must use unchecked');
     }
   }
@@ -215,7 +240,8 @@ function validateData(production, resolved, r, providedSettings) {
   if (!usable) reasons.push('usable delay and aligned audio are unfinished or unknown');
   if (!r.check) reasons.push('check is unfinished');
   else if (r.check.result === 'fail') reasons.push('check failed');
+  else if (r.check.result === 'pass' && !english(providedSettings?.language || (rt === 'xai' ? r.inputs.language : ''))) reasons.push('passing check requires English settings; non-English takes require unchecked');
   return reasons;
 }
 module.exports = {object,integer,number,string,scene,cid,route,digest,fileIdentity,matches,scriptTokens,inputs,
-  settings,settingsMatch,registry,folder,dependency,probe,wav,sourceClock,recordSource,validateRecord,validateData};
+  settings,settingsMatch,registry,folder,dependency,probe,wav,sourceClock,recordSource,validateRecord,validateData,transcriptPath};

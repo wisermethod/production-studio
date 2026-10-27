@@ -27,7 +27,8 @@ function preparation(text,route) {
   const form={text,code_points:[...text].length,sha256:I.hash(Buffer.from(text))};
   return {version:1,route,script:form,submitted:form,tokens,words:tokens,correspondence};
 }
-function fixture(t,route='chatterbox',text='New board.') {
+function transcriptText(cid) { return 'TRANSCRIPT\n\nAudio file: '+cid+'.wav\nTranscribed: 2026-10-27 12:00:00\nModel: base\n\nNew board.\n'; }
+function fixture(t,route='chatterbox',text='New board.',fileNow=true) {
   const temp=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'narration-takes-test-')));
   t.after(()=>fs.rmSync(temp,{recursive:true,force:true}));
   const production=path.join(temp,'production'); fs.mkdirSync(production);
@@ -36,30 +37,33 @@ function fixture(t,route='chatterbox',text='New board.') {
   else source=wav(path.join(temp,'source.wav'),24);
   const st=T.stage({production,scene:'scene',route,source,...I.identity(source)});
   const dir=path.dirname(st.source), aligned=path.join(dir,st.cid+'.wav');
-  const src=M.sourceClock(st.source), samples=route==='elevenlabs' ? 4410 : 24000;
-  wav(aligned,16,src.rate,samples,src.channels);
+  const src=M.sourceClock(st.source);
+  if(route==='elevenlabs') decode(st.source,aligned);
+  else wav(aligned,16,src.rate,24000,src.channels);
+  const samples=M.wav(aligned).duration_ts;
   const a=I.identity(aligned);
   const descriptor={ok:true,usable:true,basis:src.basis,removed:src.removed,stated:src.stated,rate:src.rate,channels:src.channels,codec:'pcm_s16le',time_base:'1/'+src.rate,sample_count:samples,...a,output:aligned,source:{path:st.source,before:st.file,after:st.file}};
   const settings={device:'mps',exaggeration:0.7,cfg_weight:0.3,seed:20261026,seed_step:1,max_words:35,trim_db:-50,mark_gap_s:0.5,sentence_gap_s:0.3,repetition_penalty:1.2,min_p:0.05,top_p:1,temperature:0.8};
   const facts=route==='elevenlabs' ? {voice_id:'voice',model_id:'eleven_v4'} : {reference_sha256:'a'.repeat(64),settings};
   const prep=preparation(text,route), length=samples/src.rate;
   const timings=prep.tokens.map((token,i)=>({text:token,start:i*length/prep.tokens.length,end:(i+1)*length/prep.tokens.length}));
-  const transcript=path.join(dir,'transcript.txt'); fs.writeFileSync(transcript,'Transcribed speech: New board.\n');
-  const o={production,stage:write(path.join(temp,'stage.json'),st),prepared:write(path.join(temp,'prepared.json'),prep),pcm:write(path.join(temp,'pcm.json'),descriptor),timings:write(path.join(temp,'timings.json'),timings),call:write(path.join(temp,'call.json'),{action:route==='elevenlabs'?'elevenlabs.speech.synthesize':'chatterbox.synthesize',inputs:facts}),check:write(path.join(temp,'check.json'),{result:'pass',transcript:'transcript.txt'})};
-  const result=T.file(o), record=result.record;
+  const transcript=path.join(dir,st.cid+'-transcript-2026-10-27.txt'); fs.writeFileSync(transcript,transcriptText(st.cid));
+  const o={production,stage:write(path.join(temp,'stage.json'),st),prepared:write(path.join(temp,'prepared.json'),prep),pcm:write(path.join(temp,'pcm.json'),descriptor),timings:write(path.join(temp,'timings.json'),timings),call:write(path.join(temp,'call.json'),{action:route==='elevenlabs'?'elevenlabs.speech.synthesize':'chatterbox.synthesize',inputs:facts}),check:write(path.join(temp,'check.json'),{result:'pass',transcript:path.basename(transcript)})};
+  const record=fileNow ? T.file(o).record : path.join(dir,st.cid+'.json');
   const registry=path.join(production,'narration','narration.json');
   const current={production,record,settings:write(path.join(temp,'settings.json'),{route,language:'en',...facts}),expected:write(path.join(temp,'prior.json'),null)};
-  return {temp,production,st,dir,aligned,o,record,registry,current,source};
+  return {temp,production,st,dir,aligned,o,record,registry,current,source,transcript};
 }
 function mutate(f,fn) { const r=I.json(f.record); fn(r); write(f.record,r); }
-function valid(f) { return T.validate({production:f.production,record:f.record}); }
+function valid(f) { return T.validate({production:f.production,record:f.record,...(!fs.existsSync(f.registry) ? {settings:f.current.settings} : {})}); }
 
 test('help before dependency checks, closed flags and stdout/stderr discipline',()=>{
   for(const args of [['help'],['--help'],['stage','--help'],['current','-h']]) assert.match(run(args),/Narration Takes 0.1.0/);
   for(const args of [[],['bogus'],['help','--install'],['stage','--install'],['stage','--env','/abs/key'],['stage','--wat'],['stage','--source','a','--source','b']]) assert.throws(()=>run(args));
   const result=spawnSync(process.execPath,[path.join(__dirname,'../scripts/narration-takes.js'),'stage','--install'],{encoding:'utf8'});
   assert.equal(result.status,1); assert.equal(result.stdout,''); assert.match(result.stderr,/unknown flag --install/);
-  assert.equal(spawnSync(process.execPath,['-e','require('+JSON.stringify(path.join(__dirname,'../scripts/narration-takes.js'))+')'],{encoding:'utf8'}).stdout,'');
+  const imported=spawnSync(process.execPath,['-e','require('+JSON.stringify(path.join(__dirname,'../scripts/narration-takes.js'))+')'],{encoding:'utf8'});
+  assert.equal(imported.status,0);assert.equal(imported.stdout,'');assert.equal(imported.stderr,'');
 });
 test('strict parser refuses duplicate escaped keys, nonfinite, malformed JSON',()=>{
   for(const s of ['{"a":1,"\\u0061":2}','{"a":{"b":1,"b":2}}','{"a":1e999}','{"a":NaN}','{"a":Infinity}','{"a":1,}','[true,]','{} false','{"a":"\u0001"}']) assert.throws(()=>I.parse(s));
@@ -78,6 +82,7 @@ test('failed and unfinished checks remain valid evidence, preserving earlier poi
   fs.writeFileSync(f.current.expected,prior);
   const oldRecord=f.record, newId=I.crypto.randomUUID(), next=I.json(oldRecord);
   next.cid=newId;next.aligned_file.name=newId+'.wav';
+  next.check.transcript=newId+'-transcript-2026-10-27.txt';fs.copyFileSync(f.transcript,path.join(f.dir,next.check.transcript));
   fs.copyFileSync(f.st.source,path.join(f.dir,newId+'.source.wav'));
   fs.copyFileSync(f.aligned,path.join(f.dir,newId+'.wav'));
   f.record=write(path.join(f.dir,newId+'.json'),next);f.current.record=f.record;
@@ -86,21 +91,21 @@ test('failed and unfinished checks remain valid evidence, preserving earlier poi
     mutate(f,r=>{ if(state==='fail') r.check.result='fail'; else delete r.check; });
     const result=validEvidence(f); assert.equal(result.valid,true); assert.equal(result.eligible,false);
     assert.throws(()=>T.current(f.current),/ineligible/);
-    assert.deepEqual(I.read(f.registry),prior); assert.equal(fs.existsSync(path.join(f.dir,'transcript.txt')),true);
+    assert.deepEqual(I.read(f.registry),prior); assert.equal(fs.existsSync(f.transcript),true);
     assert.deepEqual(I.read(oldRecord),oldBytes);
   }
 });
 // Read evidence without a current registry settings comparison.
-function validEvidence(f) { return M.validateRecord(f.production,f.record); }
+function validEvidence(f) { return M.validateRecord(f.production,f.record,I.json(f.current.settings)); }
 test('completion adds only caller check without synthesis and refuses changed evidence or prior bytes',t=>{
   const f=fixture(t); mutate(f,r=>delete r.check);
   const prior=I.read(f.record); const expected=path.join(f.temp,'old-take.json'); fs.writeFileSync(expected,prior);
   const before=I.json(f.record).date_filed;
-  assert.equal(T.file({...f.o,expected}).eligible,true); assert.equal(I.json(f.record).date_filed,before);
+  assert.equal(T.file({...f.o,expected}).valid,true); assert.equal(I.json(f.record).date_filed,before);
   assert.throws(()=>T.file({...f.o,expected}),/expected prior/);
   assert.throws(()=>T.file(f.o),/already exists/);
   assert.throws(()=>T.file({...f.o,expected:f.record}),/separate prior snapshot/);
-  fs.writeFileSync(expected,I.read(f.record)); write(f.o.check,{result:'fail',transcript:'transcript.txt'});
+  fs.writeFileSync(expected,I.read(f.record)); write(f.o.check,{result:'fail',transcript:path.basename(f.transcript)});
   assert.throws(()=>T.file({...f.o,expected}),/change existing/);
 });
 test('changed prior registry and byte-only changes refuse, unrelated scenes retained',t=>{
@@ -148,6 +153,8 @@ const DEFECTS = {
   'missing transcript key':r=>delete r.check.transcript,
   'transcript traversal':r=>r.check.transcript='../transcript.txt',
   'extra check key':r=>r.check.confidence=1,
+  'transcript digest key':r=>r.check.sha256='f'.repeat(64),
+  'aligned source digest key':r=>r.aligned_file.source_sha256=r.file.sha256,
   'invalid check state':r=>r.check.result='pending',
   'aligned without delay':r=>delete r.delay,
   'wrong delay':r=>r.delay.samples_removed=1105,
@@ -164,7 +171,7 @@ test('validate refuses raw non-finite and duplicate record keys',t=>{
   fs.writeFileSync(f.record,old.replace('"scene": "scene",','"scene": "scene", "scene":"scene",')); assert.throws(()=>valid(f),/duplicate/);
 });
 test('validate refuses missing, empty and escaped transcript files',t=>{
-  const f=fixture(t), transcript=path.join(f.dir,'transcript.txt');
+  const f=fixture(t), transcript=f.transcript;
   fs.writeFileSync(transcript,''); assert.throws(()=>valid(f));
   fs.unlinkSync(transcript); assert.throws(()=>valid(f));
   const outside=path.join(f.temp,'outside.txt'); fs.writeFileSync(outside,'text'); fs.symlinkSync(outside,transcript); assert.throws(()=>valid(f));
@@ -198,13 +205,14 @@ test('unknown MP3 delay remains evidence and cannot be current',t=>{
 test('legacy headerless LAME clock reads back 1105 removed, without rescaling',t=>{
   const f=fixture(t,'elevenlabs');fs.writeFileSync(f.st.source,I.read(f.st.source).subarray(417));
   const src=M.sourceClock(f.st.source);assert.equal(src.basis,'lame_no_header');assert.equal(src.rate,44100);assert.equal(src.removed,1105);
-  mutate(f,r=>{r.file=I.identity(f.st.source);r.delay={samples_removed:1105,sample_rate:44100,basis:'lame_no_header',stated_skip_samples:null};});
+  fs.unlinkSync(f.aligned);decode(f.st.source,f.aligned,1105);const a=M.wav(f.aligned);
+  mutate(f,r=>{r.file=I.identity(f.st.source);Object.assign(r.aligned_file,I.identity(f.aligned),{sample_count:a.duration_ts});r.duration=a.duration_ts/a.rate;r.delay={samples_removed:1105,sample_rate:44100,basis:'lame_no_header',stated_skip_samples:null};});
   assert.equal(valid(f).eligible,true);
   mutate(f,r=>r.delay.samples_removed=1203);assert.throws(()=>valid(f),/delay differs/);
 });
 test('legacy xAI record and registry validate without rewriting their bytes',t=>{
   const f=fixture(t,'elevenlabs');
-  mutate(f,r=>{delete r.route;r.action='xai.speech.synthesize';r.inputs={voice_id:'old-voice',language:'en',timings:'words',text_normalization:false};r.characters=[...r.text].length;r.duration=0.25;});
+  mutate(f,r=>{delete r.route;r.action='xai.speech.synthesize';r.inputs={voice_id:'old-voice',language:'en',timings:'words',text_normalization:false};r.characters=[...r.text].length;r.duration=0.35;});
   write(f.registry,{settings:{voice_id:'old-voice',language:'en',text_normalization:false},scenes:{scene:{cid:f.st.cid}}});
   const before=I.read(f.record), registry=I.read(f.registry);
   assert.equal(valid(f).legacy,true); assert.deepEqual(I.read(f.record),before); assert.deepEqual(I.read(f.registry),registry);
@@ -236,11 +244,34 @@ test('stage refuses paths, links, sizes, hashes, scene ids, gateway containment 
   const link=path.join(outputs,'11111111-1111-4111-8111-111111111111.mp3');fs.symlinkSync(FIXTURE,link);assert.throws(()=>T.stage({...o,source:link}),/symbolic/);
   const hard=path.join(outside,'hard.mp3');fs.linkSync(wrong,hard);assert.throws(()=>T.stage({...o,source:wrong}),/one link/);
   assert.throws(()=>T.stage({...o,source:outputs}));
-  // Prove no directory enumeration and no access to a sentinel gateway file.
+  // Trap reads, rather than relying on unchanged sentinel bytes. Positive
+  // controls prove the traps catch each accidental extra-file read.
   const extra=path.join(outputs,'do-not-open');fs.writeFileSync(extra,'sentinel');
-  const original=fs.readdirSync;fs.readdirSync=()=>{throw new Error('directory listing forbidden');};
-  try { const result=T.stage({...o,scene:'second'}); assert.equal(result.cid,ID); } finally {fs.readdirSync=original;}
-  assert.equal(fs.readFileSync(extra,'utf8'),'sentinel'); assert.equal(fs.existsSync(f.source),false);
+  const originals=new Map();
+  const guard=(api,listing=false)=>{
+    const original=fs[api];originals.set(api,original);
+    fs[api]=function(file,...args){
+      const resolved=typeof file==='string' ? path.resolve(file) : null;
+      const rel=resolved===null ? '..' : path.relative(outputs,resolved);
+      const inGateway=rel==='' || (rel!=='..' && !rel.startsWith('..'+path.sep) && !path.isAbsolute(rel));
+      const metadata=['statSync','lstatSync','accessSync','existsSync','readlinkSync'].includes(api);
+      if(inGateway && (listing || (resolved!==f.source && !(metadata && resolved===outputs)))) throw new Error('forbidden gateway read: '+api);
+      return original.call(fs,file,...args);
+    };
+  };
+  for(const api of ['openSync','readFileSync','createReadStream','copyFileSync','open','readFile','copyFile','statSync','lstatSync','accessSync','existsSync','readlinkSync'])guard(api);
+  for(const api of ['readdirSync','opendirSync','readdir','opendir'])guard(api,true);
+  try {
+    assert.throws(()=>fs.openSync(extra,'r'),/forbidden gateway read/);
+    assert.throws(()=>fs.openSync(outputs,'r'),/forbidden gateway read/);
+    assert.throws(()=>fs.readFileSync(extra),/forbidden gateway read/);
+    assert.throws(()=>fs.createReadStream(extra),/forbidden gateway read/);
+    assert.throws(()=>fs.copyFileSync(extra,path.join(f.temp,'forbidden-copy')),/forbidden gateway read/);
+    assert.throws(()=>fs.readdirSync(outputs),/forbidden gateway read/);
+    assert.throws(()=>fs.statSync(extra),/forbidden gateway read/);
+    const result=T.stage({...o,scene:'second'});assert.equal(result.cid,ID);
+  } finally {for(const [api,original] of originals)fs[api]=original;}
+  assert.equal(fs.readFileSync(extra,'utf8'),'sentinel');assert.equal(fs.existsSync(f.source),false);
 });
 test('protected paths and tool destinations refuse, canonical aliases screened',t=>{
   const f=fixture(t);
@@ -253,26 +284,39 @@ test('protected paths and tool destinations refuse, canonical aliases screened',
 });
 test('file refuses descriptor, prepared identity, timing and call defects before any record write',t=>{
   const f=fixture(t); fs.unlinkSync(f.record);
-  const cases=[['pcm',x=>x.sample_count=true],['pcm',x=>x.sha256='f'.repeat(64)],['pcm',x=>x.removed=1],['pcm',x=>x.usable=false],['pcm',x=>x.source.before.sha256='f'.repeat(64)],['prepared',x=>x.script.sha256='f'.repeat(64)],['prepared',x=>x.correspondence[0].script_token='NEW'],['prepared',x=>x.submitted.code_points=5001],['call',x=>x.action='wrong'],['timings',x=>x[0].text='NEW']];
+  const cases=[['pcm',x=>x.sample_count=true],['pcm',x=>x.sha256='f'.repeat(64)],['pcm',x=>x.removed=1],['pcm',x=>x.source.before.sha256='f'.repeat(64)],['prepared',x=>x.script.sha256='f'.repeat(64)],['prepared',x=>x.correspondence[0].script_token='NEW'],['prepared',x=>x.submitted.code_points=5001],['call',x=>x.action='wrong'],['timings',x=>x[0].text='NEW']];
   for(const [key,change] of cases) {
     const old=I.read(f.o[key]), data=I.json(f.o[key]);change(data);write(f.o[key],data);
     assert.throws(()=>T.file(f.o));assert.equal(fs.existsSync(f.record),false);fs.writeFileSync(f.o[key],old);
   }
 });
-test('stage retains a gateway source when its new copy fails verification, across devices without rename',t=>{
-  const f=fixture(t,'elevenlabs'); fs.copyFileSync(FIXTURE,f.source);
-  const copy=fs.copyFileSync, rename=fs.renameSync;
-  fs.renameSync=()=>{const e=new Error('cross-device'); e.code='EXDEV';throw e;};
-  fs.copyFileSync=(src,dest,flags)=>{copy(src,dest,flags);fs.appendFileSync(dest,'damage');};
-  try { assert.throws(()=>T.stage({production:f.production,scene:'failed-copy',route:'elevenlabs',source:f.source,...I.identity(f.source)}),/mismatch/); }
-  finally { fs.copyFileSync=copy;fs.renameSync=rename; }
-  assert.equal(fs.existsSync(f.source),true);
-  const output=path.join(f.production,'narration','failed-copy',ID+'.mp3');
-  assert.equal(fs.existsSync(output),true);assert.equal(fs.existsSync(path.join(f.production,'narration','narration.json')),false);
-  fs.renameSync=()=>{const e=new Error('cross-device'); e.code='EXDEV';throw e;};
-  try { T.stage({production:f.production,scene:'successful-copy',route:'elevenlabs',source:f.source,...I.identity(f.source)}); }
-  finally { fs.renameSync=rename; }
-  assert.equal(fs.existsSync(f.source),false);
+test('R8 copy path covers distinct devices, copy errors and verification before source removal',t=>{
+  const f=fixture(t,'elevenlabs');fs.copyFileSync(FIXTURE,f.source);
+  const copy=fs.copyFileSync, stat=fs.statSync, lstat=fs.lstatSync;let copies=0;
+  // The OS fixture is one volume. Present distinct source/destination device
+  // identities to the screen, and assert the exact copy API/flags used.
+  const deviceStat=original=>function(file,...args){
+    const value=original.call(fs,file,...args);
+    if(file===f.source)value.dev=typeof value.dev==='bigint' ? 9001n : 9001;
+    return value;
+  };
+  fs.statSync=deviceStat(stat);fs.lstatSync=deviceStat(lstat);
+  const ident=I.identity(f.source), options={production:f.production,route:'elevenlabs',source:f.source,...ident};
+  try {
+    fs.copyFileSync=(src,dest,flags)=>{
+      copies++;assert.equal(src,f.source);assert.equal(flags,fs.constants.COPYFILE_EXCL);
+      assert.notEqual(fs.statSync(src).dev,fs.statSync(f.production).dev);
+      const error=new Error('injected copy EXDEV');error.code='EXDEV';throw error;
+    };
+    assert.throws(()=>T.stage({...options,scene:'copy-error'}),/injected copy EXDEV/);
+    assert.equal(fs.existsSync(f.source),true);
+    fs.copyFileSync=(src,dest,flags)=>{copies++;copy(src,dest,flags);fs.appendFileSync(dest,'damage');};
+    assert.throws(()=>T.stage({...options,scene:'failed-copy'}),/mismatch/);
+    assert.equal(fs.existsSync(f.source),true);
+    fs.copyFileSync=(src,dest,flags)=>{copies++;assert.equal(flags,fs.constants.COPYFILE_EXCL);copy(src,dest,flags);};
+    const staged=T.stage({...options,scene:'successful-copy'});
+    assert.deepEqual(I.identity(staged.source),ident);assert.equal(fs.existsSync(f.source),false);assert.equal(copies,3);
+  } finally {fs.copyFileSync=copy;fs.statSync=stat;fs.lstatSync=lstat;}
 });
 test('local stage refuses an existing generated UUID destination',t=>{
   const f=fixture(t), random=I.crypto.randomUUID;I.crypto.randomUUID=()=>f.st.cid;
@@ -306,4 +350,169 @@ test('current revalidates immediately before publication and rereads registry af
   };
   try {assert.throws(()=>T.current(f.current),/changed prior/);} finally {M.validateRecord=validate;}
   assert.equal(I.json(f.registry).scenes.other.cid,ID);assert.equal(I.json(f.registry).scenes.scene,undefined);
+});
+
+
+// Round-one repairs: each regression is run against the reviewed implementation
+// before its repair. Helpers here manufacture evidence, never synthesis.
+function clearRecord(f) { fs.unlinkSync(f.record); }
+function nullAudio(pcm) {
+  pcm.usable=false;
+  for(const key of ['codec','time_base','sample_count','bytes','sha256','output']) pcm[key]=null;
+  return pcm;
+}
+function decode(source,output,removed=0) {
+  const args=['-n','-v','error','-i',source,'-map_metadata','-1','-fflags','+bitexact','-flags:a','+bitexact','-c:a','pcm_s16le'];
+  if(removed) args.push('-af','atrim=start_sample='+removed);
+  const r=spawnSync('ffmpeg',[...args,output],{encoding:'utf8'});
+  assert.equal(r.status,0,r.stderr); assert.equal(r.stderr,'');
+}
+function refreshAudio(f) {
+  const pcm=I.json(f.o.pcm), a=M.wav(f.aligned);
+  Object.assign(pcm,{sample_count:a.duration_ts,...I.identity(f.aligned)}); write(f.o.pcm,pcm);
+  return pcm;
+}
+test('R1 unknown or unusable delay files resumable evidence with no new source',t=>{
+  for(const unknown of [false,true]) {
+    const f=fixture(t,'elevenlabs','New board.',false), original=I.read(f.st.source), usable=I.json(f.o.pcm);
+    const pcm=nullAudio(I.json(f.o.pcm));
+    if(unknown) Object.assign(pcm,{basis:'unknown',removed:0,stated:null});
+    write(f.o.pcm,pcm);
+    assert.equal(T.file(f.o).eligible,false);
+    const r=I.json(f.record); assert.equal(r.aligned_file,null); assert.equal(r.delay.basis,pcm.basis);
+    assert.equal(validEvidence(f).valid,true); assert.deepEqual(I.read(f.st.source),original);
+    assert.throws(()=>T.current(f.current),/ineligible/);
+    const expected=write(path.join(f.temp,'unfinished.json'),r);
+    write(f.o.pcm,usable);
+    assert.equal(T.file({...f.o,expected}).valid,true);
+    assert.equal(T.validate({...f.current}).eligible,true);
+    assert.deepEqual(I.read(f.st.source),original);
+  }
+});
+test('R2 descriptors bind source and WAV identities and reject the short MP3 stand-in',t=>{
+  const f=fixture(t,'elevenlabs'); clearRecord(f);
+  const original=I.read(f.o.pcm);
+  const pcm=I.json(f.o.pcm); pcm.bytes++; write(f.o.pcm,pcm);
+  // A record whose WAV hash/bytes match disk cannot excuse a bad descriptor.
+  assert.throws(()=>T.file(f.o),/descriptor|identity|mismatch/);
+  fs.writeFileSync(f.o.pcm,original);
+  for(const fields of [['before'],['after'],['before','after']]) {
+    const descriptor=I.json(f.o.pcm);
+    for(const field of fields) descriptor.source[field].sha256='f'.repeat(64);
+    write(f.o.pcm,descriptor);
+    assert.throws(()=>T.file(f.o),/PCM source identity/);
+    assert.equal(fs.existsSync(f.record),false);
+    fs.writeFileSync(f.o.pcm,original);
+  }
+  wav(f.aligned,16,44100,4410); refreshAudio(f);
+  assert.throws(()=>T.file(f.o),/sample count|decoded|source clock/);
+  fs.unlinkSync(f.aligned); decode(f.st.source,f.aligned); refreshAudio(f);
+  const timings=I.json(f.o.timings);timings.forEach((x,i)=>{x.start=i*0.1;x.end=(i+1)*0.1;});write(f.o.timings,timings);
+  T.file(f.o);
+  const aligned=I.json(f.record).aligned_file;
+  assert.equal(Object.hasOwn(aligned,'source_sha256'),false);
+  assert.deepEqual(Object.keys(aligned).sort(),['bytes','name','sample_count','sha256']);
+  assert.equal(validEvidence(f).eligible,true);
+  const source=I.read(f.st.source);
+  fs.appendFileSync(f.st.source,'changed');
+  assert.throws(()=>validEvidence(f),/file bytes or sha256 mismatch/);
+  fs.writeFileSync(f.st.source,source);
+  assert.equal(validEvidence(f).eligible,true);
+  // A self-consistent forged WAV/record still has to match the decoded source.
+  wav(f.aligned,16,44100,4410);
+  mutate(f,r=>{Object.assign(r.aligned_file,I.identity(f.aligned),{sample_count:4410});r.duration=0.1;r.timings.forEach(x=>{x.start=0;x.end=0.05;});});
+  assert.throws(()=>validEvidence(f),/sample count|decoded|source clock/);
+});
+test('R3 exact JSON timing lexemes agree with Scene Composer clocks',t=>{
+  const f=fixture(t), before=I.read(f.record).toString();
+  fs.writeFileSync(f.record,before.replace('"end": 1','"end": 1.0000000000000001'));
+  assert.throws(()=>validEvidence(f),/past|length|clock/);
+  fs.writeFileSync(f.record,before.replace('"start": 0','"start": -1e-400'));
+  assert.throws(()=>validEvidence(f),/negative|start|past|length|clock/);
+  // 1/5 = 0.2 is exact decimal but not dyadic. Its Number division agrees with
+  // Scene Composer, even where rounded multiplication/duration checks do not.
+  wav(f.aligned,16,24000,4800); wav(f.st.source,24,24000,4800);
+  const r=I.parse(before);r.file=I.identity(f.st.source);Object.assign(r.aligned_file,I.identity(f.aligned),{sample_count:4800});
+  r.duration=0.2;r.timings=[{text:'New',start:0,end:0.1},{text:'board.',start:0.1,end:0.2}];
+  write(f.record,r);assert.equal(validEvidence(f).valid,true);
+  const SC=require('../../Scene Composer/scripts/rational.js');
+  assert.equal(SC.parse(I.read(f.record).toString()).timings[1].end.cmp(new SC.Q(4800n,24000n)),0);
+  // Filing must retain lexemes rather than round an overflow down to 1.
+  const g=fixture(t);clearRecord(g);
+  fs.writeFileSync(g.o.timings,I.read(g.o.timings).toString().replace('"end": 1','"end": 1.0000000000000001'));
+  assert.throws(()=>T.file(g.o),/past|length|clock/);
+});
+test('R5 passing checks bind cid, transcript name and English settings without a stored digest',t=>{
+  const f=fixture(t);
+  const check=I.json(f.record).check;
+  assert.equal(Object.hasOwn(check,'sha256'),false);
+  assert.deepEqual(Object.keys(check).sort(),['result','transcript']);
+  assert.equal(check.transcript,f.st.cid+'-transcript-2026-10-27.txt');
+  for(const name of ['notes.txt',ID+'-transcript-2026-10-27.txt']) {
+    fs.writeFileSync(path.join(f.dir,name),'a renamed note');
+    mutate(f,r=>r.check={result:'pass',transcript:name});
+    assert.throws(()=>validEvidence(f),/transcript.*cid|transcript.*name/);
+  }
+  mutate(f,r=>r.check=check);
+  const record=I.read(f.record);
+  fs.writeFileSync(f.transcript,transcriptText(f.st.cid).replace('12:00:00','13:00:00').replace('New board.','New board. A replacement transcript.'));
+  assert.equal(validEvidence(f).eligible,true);
+  assert.deepEqual(I.read(f.record),record);
+  clearRecord(f);
+  fs.writeFileSync(f.transcript,'a renamed note');
+  assert.throws(()=>T.file(f.o),/transcript.*format|transcript.*header/);
+  fs.writeFileSync(f.transcript,transcriptText(f.st.cid));T.file(f.o);
+  assert.equal(T.validate({production:f.production,record:f.record}).eligible,false);
+  const settings=I.json(f.current.settings);
+  for(const language of ['fr','FR-ca','english']) {
+    write(f.current.settings,{...settings,language});
+    assert.equal(T.validate({...f.current}).eligible,false);assert.throws(()=>T.current(f.current),/ineligible/);
+  }
+  for(const language of ['en','eng','EN-us','EnG-US']) {
+    write(f.current.settings,{...settings,language});assert.equal(T.validate({...f.current}).eligible,true);
+  }
+});
+test('R6 write and fsync failures leave no blocking record or temporary and retry succeeds',t=>{
+  for(const operation of ['writeFileSync','fsyncSync']) {
+    const f=fixture(t);clearRecord(f);const original=fs[operation];let fired=false;
+    fs[operation]=function(fd,...args) {
+      if(typeof fd==='number' && !fired) {fired=true;if(operation==='writeFileSync') original.call(fs,fd,Buffer.from('{'));throw new Error('injected '+operation);}
+      return original.call(fs,fd,...args);
+    };
+    try {assert.throws(()=>T.file(f.o),/injected/);} finally {fs[operation]=original;}
+    assert.equal(fired,true);assert.equal(fs.existsSync(f.record),false);
+    assert.equal(fs.readdirSync(f.dir).some(x=>x.startsWith('.narration-takes-')),false);
+    assert.equal(T.file(f.o).valid,true);
+  }
+  // The same cleanup applies to completion/registry siblings.
+  const f=fixture(t);mutate(f,r=>delete r.check);
+  const expected=write(path.join(f.temp,'expected.json'),I.json(f.record)), before=I.read(f.record), sync=fs.fsyncSync;
+  fs.fsyncSync=()=>{throw new Error('injected fsync');};
+  try {assert.throws(()=>T.file({...f.o,expected}),/injected/);} finally {fs.fsyncSync=sync;}
+  assert.deepEqual(I.read(f.record),before);assert.equal(fs.readdirSync(f.dir).some(x=>x.startsWith('.narration-takes-')),false);
+  assert.equal(T.file({...f.o,expected}).valid,true);
+});
+test('R7 gateway unlink is the final source or copy verification operation',t=>{
+  const f=fixture(t,'elevenlabs');fs.copyFileSync(FIXTURE,f.source);
+  const ident=I.identity(f.source), read=fs.readFileSync, unlink=fs.unlinkSync;let removed=false;
+  fs.unlinkSync=function(file,...args){const result=unlink.call(fs,file,...args);if(file===f.source)removed=true;return result;};
+  fs.readFileSync=function(file,...args){if(removed)throw new Error('hash/read after unlink');return read.call(fs,file,...args);};
+  try {T.stage({production:f.production,scene:'last-unlink',route:'elevenlabs',source:f.source,...ident});}
+  finally {fs.unlinkSync=unlink;fs.readFileSync=read;}
+  assert.equal(removed,true);
+});
+test('R8 canonical screen checks filesystem identities and later opens only its returned path',t=>{
+  const f=fixture(t), alias=path.join(f.temp,'alias');fs.symlinkSync(f.production,alias);
+  const stat=fs.statSync;let comparisons=0;
+  fs.statSync=function(file,...args){comparisons++;return stat.call(fs,file,...args);};
+  try {assert.equal(I.canonical(alias),f.production);assert.ok(comparisons>=2,'compare device/inode before and after realpath');}
+  finally {fs.statSync=stat;}
+  let calls=0;
+  fs.statSync=function(file,...args){const result=stat.call(fs,file,...args);if(++calls===2)result.ino++;return result;};
+  try {assert.throws(()=>I.canonical(alias),/identity changed/);} finally {fs.statSync=stat;}
+  const canonical=I.canonical;let screened;
+  I.canonical=function(file){const result=canonical(file);if(file===alias)screened=result;return result;};
+  const stage=T.stage;T.stage=o=>{assert.equal(o.production,screened);return {ok:true};};
+  try {run(['stage','--production',alias,'--scene','scene','--route','chatterbox','--source',f.source,'--bytes','1','--sha256','a'.repeat(64)]);}
+  finally {I.canonical=canonical;T.stage=stage;}
 });

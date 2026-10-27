@@ -12,9 +12,9 @@ Timeline installs its 35 exact wheel pins, about 95 MB per interpreter, from `py
 
 | What | Where | Which tools |
 |------|-------|-------------|
-| Staged MP3 or retained source WAV, take JSON and narration registry | Caller-named production, under `narration/<scene>/` and `narration/narration.json` | Narration Takes |
-| Record publication sibling and writer lock | `.narration-takes-<uuid>.tmp` beside the target record and `.narration-takes.lock` in the narration directory; ordinary failures remove them, a kill can retain them | Narration Takes |
-| Offline test WAVs, fabricated evidence and staged copies | OS-temporary `narration-takes-test-*` directories, removed after each case; a kill can retain them | Narration Takes tests |
+| Staged MP3 or retained source WAV, resumable take JSON with source and aligned-WAV identities and a cid-bound transcript filename, and narration registry | Caller-named production, under `narration/<scene>/` and `narration/narration.json` | Narration Takes |
+| New-record, completion and registry publication sibling and writer lock | `.narration-takes-<uuid>.tmp` beside the target record and `.narration-takes.lock` in the narration directory; ordinary failures remove them, a kill can retain them | Narration Takes |
+| Offline test WAVs (including FFmpeg-decoded MP3), fabricated evidence and staged copies | OS-temporary `narration-takes-test-*` directories, removed after each case; a kill can retain them | Narration Takes tests |
 | HTML project page, linked stylesheet and seek script | New caller-named `--output` directory, under `project/` | Scene Composer |
 | Still and font copies under fixed names | The same output's `project/` directory | Scene Composer |
 | Scene caption track, captions.srt | The same output directory | Scene Composer |

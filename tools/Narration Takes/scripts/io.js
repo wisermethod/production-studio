@@ -4,7 +4,21 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const TOOL = fs.realpathSync(path.join(__dirname, '..'));
 function fail(message) { throw new Error(message); }
+function sameFile(a, b) { return a.dev === b.dev && a.ino === b.ino; }
 function inside(file, dir) {
+  // Identity comparisons also cover filesystem aliases and hard links. Walk
+  // existing ancestors for not-yet-created destinations, after realpath.
+  const root = stat(dir);
+  if (root) {
+    let head = file;
+    for (;;) {
+      const entry = stat(head);
+      if (entry && sameFile(entry, root)) return true;
+      const parent = path.dirname(head);
+      if (parent === head) break;
+      head = parent;
+    }
+  }
   const rel = path.relative(dir, file);
   return rel === '' || (rel !== '..' && !rel.startsWith('..' + path.sep) && !path.isAbsolute(rel));
 }
@@ -20,7 +34,10 @@ function canonical(value) {
   let head = value; const tail = [];
   for (;;) {
     try {
-      const result = path.join(fs.realpathSync(head), ...tail);
+      const before = fs.statSync(head, {bigint:true});
+      const resolved = fs.realpathSync(head), after = fs.statSync(resolved, {bigint:true});
+      if (!sameFile(before, after)) fail('path filesystem identity changed during screening');
+      const result = path.join(resolved, ...tail);
       protectedPath(result); return result;
     } catch (e) {
       if (e.code !== 'ENOENT') throw e;
@@ -59,6 +76,11 @@ function stable(v) {
 }
 // A recursive parser detects duplicate *decoded* keys, including escaped aliases.
 // JSON.parse alone silently accepts them. It also accepts 1e999 as Infinity.
+const lexemes = new WeakMap();
+function numberText(owner, key) {
+  const raw = lexemes.get(owner)?.get(String(key));
+  return raw !== undefined && Number(raw) === owner[key] ? raw : String(owner[key]);
+}
 function parse(text) {
   let at = 0;
   function space() { while (/[\x20\t\r\n]/.test(text[at] || '\0')) at++; }
@@ -71,7 +93,7 @@ function parse(text) {
     }
     fail('unterminated JSON string; supply strict JSON');
   }
-  function value(depth = 0) {
+  function value(depth = 0, owner, key) {
     if (depth > 100) fail('JSON nesting exceeds 100');
     space(); const c = text[at];
     if (c === '"') return string();
@@ -82,7 +104,7 @@ function parse(text) {
         space(); if (text[at] !== '"') fail('JSON object needs a quoted key');
         const k = string(); if (seen.has(k)) fail('duplicate JSON key; remove the duplicate'); seen.add(k);
         space(); if (text[at++] !== ':') fail('invalid JSON colon');
-        out[k] = value(depth + 1); space(); const end = text[at++];
+        out[k] = value(depth + 1, out, k); space(); const end = text[at++];
         if (end === '}') return out;
         if (end !== ',') fail('invalid JSON object');
       }
@@ -90,7 +112,7 @@ function parse(text) {
     if (c === '[') {
       at++; const out = []; space(); if (text[at] === ']') { at++; return out; }
       for (;;) {
-        out.push(value(depth + 1)); space(); const end = text[at++];
+        out.push(value(depth + 1, out, out.length)); space(); const end = text[at++];
         if (end === ']') return out;
         if (end !== ',') fail('invalid JSON array');
       }
@@ -98,16 +120,38 @@ function parse(text) {
     const m = /^(?:-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null)/.exec(text.slice(at));
     if (!m) fail('invalid JSON value; supply strict JSON');
     at += m[0].length; const v = JSON.parse(m[0]);
-    if (typeof v === 'number' && !Number.isFinite(v)) fail('non-finite JSON number');
+    if (typeof v === 'number') {
+      if (!Number.isFinite(v)) fail('non-finite JSON number');
+      if (owner) {
+        if (!lexemes.has(owner)) lexemes.set(owner, new Map());
+        lexemes.get(owner).set(String(key), m[0]);
+      }
+    }
     return v;
   }
   const out = value(); space(); if (at !== text.length) fail('trailing JSON data'); return out;
 }
 function json(file) { return parse(utf8(read(file))); }
-function encode(value) { return Buffer.from(JSON.stringify(value, null, 2) + '\n'); }
+function encode(value) {
+  function serialize(v, depth, owner, key) {
+    if (typeof v === 'number' && owner) return numberText(owner, key);
+    if (!v || typeof v !== 'object') return JSON.stringify(v);
+    const array = Array.isArray(v), keys = Object.keys(v).filter(k => v[k] !== undefined);
+    if (!keys.length) return array ? '[]' : '{}';
+    const indent = '  '.repeat(depth + 1);
+    const lines = keys.map(k => indent + (array ? '' : JSON.stringify(k) + ': ') + serialize(v[k], depth + 1, v, k));
+    return (array ? '[' : '{') + '\n' + lines.join(',\n') + '\n' + '  '.repeat(depth) + (array ? ']' : '}');
+  }
+  return Buffer.from(serialize(value, 0) + '\n');
+}
 function writeNew(file, bytes) {
   file = destination(file); const fd = fs.openSync(file, 'wx', 0o600);
-  try { fs.writeFileSync(fd, bytes); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+  let complete = false;
+  try { fs.writeFileSync(fd, bytes); fs.fsyncSync(fd); complete = true; }
+  finally {
+    try { fs.closeSync(fd); }
+    finally { if (!complete) fs.unlinkSync(file); }
+  }
 }
 module.exports = { fs, path, crypto, TOOL, fail, inside, canonical, stat, regular, destination, read,
-  utf8, hash, identity, equal, parse, json, encode, writeNew };
+  utf8, hash, identity, equal, parse, json, encode, writeNew, numberText };
