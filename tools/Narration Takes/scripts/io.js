@@ -146,11 +146,12 @@ function encode(value) {
 }
 function writeNew(file, bytes) {
   file = destination(file); const fd = fs.openSync(file, 'wx', 0o600);
-  let complete = false;
+  let complete = false, closed = false;
   try { fs.writeFileSync(fd, bytes); fs.fsyncSync(fd); complete = true; }
   finally {
-    try { fs.closeSync(fd); }
-    finally { if (!complete) fs.unlinkSync(file); }
+    // A close that fails after a durable write still removes this run's file, so no temporary outlives it.
+    try { fs.closeSync(fd); closed = true; }
+    finally { if (!complete || !closed) fs.unlinkSync(file); }
   }
 }
 module.exports = { fs, path, crypto, TOOL, fail, inside, canonical, stat, regular, destination, read,

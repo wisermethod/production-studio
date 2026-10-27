@@ -472,14 +472,23 @@ test('R5 passing checks bind cid, transcript name and English settings without a
     write(f.current.settings,{...settings,language});assert.equal(T.validate({...f.current}).eligible,true);
   }
 });
-test('R6 write and fsync failures leave no blocking record or temporary and retry succeeds',t=>{
-  for(const operation of ['writeFileSync','fsyncSync']) {
+test('R6 write, fsync and close failures leave no blocking record or temporary and retry succeeds',t=>{
+  for(const operation of ['writeFileSync','fsyncSync','closeSync']) {
     const f=fixture(t);clearRecord(f);const original=fs[operation];let fired=false;
+    // Only a descriptor opened for a new file ('wx'), the write path, is failed; reads close their own descriptors.
+    const open=fs.openSync, written=new Set();
+    fs.openSync=function(file,flags,...rest){const fd=open.call(fs,file,flags,...rest);if(flags==='wx')written.add(fd);return fd;};
     fs[operation]=function(fd,...args) {
-      if(typeof fd==='number' && !fired) {fired=true;if(operation==='writeFileSync') original.call(fs,fd,Buffer.from('{'));throw new Error('injected '+operation);}
+      if(typeof fd==='number' && written.has(fd) && !fired) {
+        fired=true;
+        if(operation==='writeFileSync') original.call(fs,fd,Buffer.from('{'));
+        // A close that fails after a successful fsync: the descriptor is released, then the call reports failure.
+        if(operation==='closeSync') original.call(fs,fd,...args);
+        throw new Error('injected '+operation);
+      }
       return original.call(fs,fd,...args);
     };
-    try {assert.throws(()=>T.file(f.o),/injected/);} finally {fs[operation]=original;}
+    try {assert.throws(()=>T.file(f.o),/injected/);} finally {fs[operation]=original;fs.openSync=open;}
     assert.equal(fired,true);assert.equal(fs.existsSync(f.record),false);
     assert.equal(fs.readdirSync(f.dir).some(x=>x.startsWith('.narration-takes-')),false);
     assert.equal(T.file(f.o).valid,true);
