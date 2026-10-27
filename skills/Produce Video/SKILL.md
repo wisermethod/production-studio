@@ -60,7 +60,7 @@ Show the scene plan, each id, kind and still, with step 6's cost line, in the sa
 - `target`: `name: "long-form"`, `frame` with `width: 1920`, `height: 1080`, `fps: 30`, and `captions` with `mode: "none"`. This is Animate Scenes' drawing mode; Publish Video receives the joined caption track.
 - `capture_plan`: the stills in order, each `id`, what it `shows` and its `recipe` path relative to the production; `explainer`, the requested takeaway or `null`; and supplied chip text where present.
 - `scenes`: the scene plan in the script's order, each `id` and `kind`; a walkthrough also has `still`, its still id; an explainer has `sources`, the brief steps and redacted still identities it uses, and its viewer takeaway. Empty until the script is ready.
-- `cost`: `approval`, either `null` or an object of `amount` in US dollars, the member's exact `words` and `date`; and `spent`, each phase's reported spend, including reported zero money cost and quota separately where returned. An unreported spend is unavailable with its reason, never a guessed zero.
+- `cost`: `approval`, either `null` or an object of `amount` in US dollars, the member's exact `words` and `date`; and `spent`, each phase's money and quota, kept apart. Money is what the phase's skill reports for its billed calls; where it reports none, record 0 with the gateway actions that phase called, `none` or each by its action id, as the evidence that it made no billed call, since a phase this run carried out is one whose calls it knows. Only a phase whose calls this run cannot list is unavailable, with its reason; never a guessed zero.
 - `versions`: a list, each entry with:
   - `n`: the version number, starting at 1; and `date`.
   - `change`: the member's sentence, or `null` for the first version.
