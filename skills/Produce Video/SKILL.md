@@ -101,9 +101,9 @@ The next version number is one greater than the highest recorded number, or 1 fo
 
 Which voice clone is available?
 
-- `<production>/narration/narration.json` records `settings.voice_id`: use that id, after its shape passes Narrate's check.
-- Otherwise the owning root's `programs/voice-clones/voice-clones.json` has the member's entry, `is_member: true`, with `voice_id` and `name`: read its `person` and `consent` in Set Up Voice Clone's shape and use its recorded id without another consent question.
-- Neither: run **Set Up Voice Clone** by name for the member, with the known person and console name or id, if supplied. Its own question and confirmation belong there. It stops: stop this run, naming what it is owed. It returns the confirmed entry: use that id.
+- `<production>/narration/narration.json` records `settings.route` and that route's voice clone, after its shape passes Narrate's check: read `settings.voice_id` for ElevenLabs or `settings.reference_sha256` for Chatterbox. In the owning root's `programs/voice-clones/voice-clones.json`, match that identity to exactly one person's `voice_clones` entry on the recorded route in Set Up Voice Clone's shape; read its `person` and `consent` and select that person's entry without another consent question. No unique match: take the mismatch stop below.
+- Otherwise that program has the root's `route` and the member's unique entry, `is_member: true`, with a clone under `voice_clones` on it: read its `person` and `consent` in Set Up Voice Clone's shape and select that entry. ElevenLabs holds `voice_id` and `name`; Chatterbox holds the reference's relative `path`, `bytes` and `sha256`, which Narrate resolves and verifies. Top-level legacy `voice_id` and `name` are xAI clones and are never selected; a narration record without `route` falls through to this root-route read.
+- Neither a route nor the needed clone is available: run **Set Up Voice Clone** by name for the member, with the known person and supplied clone name or id, if any. Its own question and confirmation belong there. It stops: stop this run, naming what it is owed. It returns the confirmed entry: select that person's entry.
 
 A malformed record or more than one possible member entry: stop and put the mismatch to the member; never choose by a similar name or take a sample here.
 
@@ -140,7 +140,7 @@ Put the scene plan, the selected scenes, counts, rate and date, ordinary cost an
 
 ### 7. Narration
 
-Run **Narrate** by name with `<scenes>`, every plan scene in order, its id and its exact single narration line from the script's fenced `text` block, without trimming or normalizing; `<voice_clone>`, the selected id; `<production>`; and `<cost_approval>`. It selects kept takes by its own records. Record its reported spend, every scene's kept or made outcome and the narration record path and hash. A stopped scene, or a current take not matching the script and settings: stop this run with that skill's next step; never carry an old take forward as this version's result.
+Run **Narrate** by name with `<scenes>`, every plan scene in order, its id and its exact single narration line from the script's fenced `text` block, without trimming or normalizing; `<voice_clone>`, the selected person's entry; `<production>`; and `<cost_approval>`. It selects kept takes by its own records. Record its reported spend, every scene's kept or made outcome and the narration record path and hash. A stopped scene, or a current take not matching the script and settings: stop this run with that skill's next step; never carry an old take forward as this version's result.
 
 ### 8. The scenes
 
@@ -164,7 +164,7 @@ Record the publish record path and hash, reported spend and quota, and returned 
 
 ### 10. A change
 
-Read the current version and its capture folder, existing script, plan and Narrate's recorded `settings.voice_id`, which is this pass's voice clone. Keep `<change>` exactly as the member's sentence. Allocate the next version number as step 1 says, initially held with this sentence, comparison and later phases owed, no completed records, and null video key and upload. Run every walkthrough recipe again into its fresh capture folder, reading the stored terms and redacting as step 4 states. From Screen Capture's directory run `python3 scripts/capture.py compare --a "<current capture folder>" --b "<new capture folder>"`; each directory holds aggregate `raw/<still id>.png`. Save its comparison result under the new capture folder, keeping raw files private. A failed comparison: stop and name the missing result, never assume equality.
+Read the current version and its capture folder, existing script, plan and Narrate's recorded route and voice clone through step 2's same lookup, selecting that person's entry for this pass; a legacy narration record without `route` uses the root-route fallback there. Keep `<change>` exactly as the member's sentence. Allocate the next version number as step 1 says, initially held with this sentence, comparison and later phases owed, no completed records, and null video key and upload. Run every walkthrough recipe again into its fresh capture folder, reading the stored terms and redacting as step 4 states. From Screen Capture's directory run `python3 scripts/capture.py compare --a "<current capture folder>" --b "<new capture folder>"`; each directory holds aggregate `raw/<still id>.png`. Save its comparison result under the new capture folder, keeping raw files private. A failed comparison: stop and name the missing result, never assume equality.
 
 Which stills differ? `identical: false`, `same_size: false`, or an id in `only_a` or `only_b`: each differs. Identical with the same size: unchanged. Form the proposed set from every scene whose cue's `Still` cites a differing still, plus each scene the member's sentence explicitly names, with each reason. An ambiguous scene reference or an unmapped still: ask for its scene before fixing the set; nothing is inferred from the sentence alone. An explainer's source stills remain associated with its plan sources for the phase's own key comparison.
 

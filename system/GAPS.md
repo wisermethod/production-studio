@@ -4,7 +4,7 @@ What this plugin does not do, declared by the primitive that names it.
 
 A gap is a capability this root does not provide that a primitive's own body names as missing (`wiser/standards/primitives.md`). This file collects every declared `gaps` entry, by hand, and is corrected whenever a primitive's gaps change. It carries capability gaps only, and names what is missing, never where it went.
 
-Counted 2026-10-27: 14 gaps across 8 primitives. Bullet count: `grep -E '^- ' system/GAPS.md | wc -l` returns 14, and the same count derived from the primitives' own `gaps:` frontmatter returns 14.
+Counted 2026-10-27: 15 gaps across 8 primitives. Bullet count: `grep -E '^- ' system/GAPS.md | wc -l` returns 15, and the same count derived from the primitives' own `gaps:` frontmatter returns 15.
 
 ## Skills
 
@@ -20,6 +20,7 @@ Counted 2026-10-27: 14 gaps across 8 primitives. Bullet count: `grep -E '^- ' sy
 ### Narrate
 
 - Checking a take narrated in a language other than English
+- Free-route narration outside English or with tokens its English aligner cannot represent
 
 ### Produce Video
 
@@ -33,7 +34,7 @@ Counted 2026-10-27: 14 gaps across 8 primitives. Bullet count: `grep -E '^- ' sy
 ### Set Up Voice Clone
 
 - Cloning a person's likeness
-- A voice clone for a member where xAI does not offer voice clones
+- The free route on a machine Chatterbox refuses or whose trial exceeds its speed limit
 
 ## Tools
 
