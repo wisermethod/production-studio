@@ -132,17 +132,21 @@ function locked(dir, run) {
 function validate(o) {
   const requested = o.settings ? I.json(o.settings) : undefined;
   const record = I.json(o.record);
-  let applicable = requested;
+  let applicable = requested, registryMatch = null;
   const regPath = path.join(narration(o.production),'narration.json');
   if (I.stat(regPath)) {
     if (I.regular(regPath) !== regPath) fail('narration.json must stay at its production path');
     const reg = I.json(regPath); M.registry(reg);
     if (reg.scenes[record.scene]?.cid === record.cid) {
-      M.settingsMatch(reg.settings,record);
-      if (!applicable) applicable = reg.settings;
+      // A re-voice rewrites the registry's settings with its first new take while other scenes still point at
+      // older takes, so a current take filed under other settings is reported for the caller to narrate again,
+      // never refused as malformed.
+      try { M.settingsMatch(reg.settings,record); registryMatch = true; } catch (e) { registryMatch = false; }
+      if (!applicable && registryMatch) applicable = reg.settings;
     }
   }
-  return M.validateRecord(o.production,o.record,applicable);
+  const result = M.validateRecord(o.production,o.record,applicable);
+  return registryMatch === null ? result : {...result,registry_settings_match:registryMatch};
 }
 function current(o) {
   const dir = narration(o.production), regPath = I.destination(path.join(dir,'narration.json'),false);

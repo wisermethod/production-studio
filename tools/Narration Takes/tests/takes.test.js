@@ -225,6 +225,18 @@ test('5,000-code-point original and submitted boundaries, including astral chara
   const p=I.json(f.o.prepared); p.submitted.text+='𐐀';p.submitted.code_points++;p.submitted.sha256=I.hash(Buffer.from(p.submitted.text)); write(f.o.prepared,p);
   assert.throws(()=>T.file(f.o),/5,000/);
 });
+test('a current take filed under earlier settings is reported, not refused, so an interrupted re-voice resumes',t=>{
+  // A re-voice rewrites the registry's settings with its first new take while other scenes still point at older ones.
+  const f=fixture(t); T.current(f.current);
+  const reg=I.json(f.registry); reg.settings={...reg.settings,reference_sha256:'b'.repeat(64)}; write(f.registry,reg);
+  const own=T.validate({production:f.production,record:f.record,settings:f.current.settings});
+  assert.equal(own.valid,true); assert.equal(own.registry_settings_match,false);
+  const bare=T.validate({production:f.production,record:f.record});
+  assert.equal(bare.valid,true); assert.equal(bare.registry_settings_match,false);
+  // A take current under the registry's own settings still reads as matching.
+  const g=fixture(t); T.current(g.current);
+  assert.equal(T.validate({production:g.production,record:g.record}).registry_settings_match,true);
+});
 test('settings mismatch, strict registry and stale lock refuse',t=>{
   const f=fixture(t); const s=I.json(f.current.settings); s.reference_sha256='b'.repeat(64); write(f.current.settings,s);
   assert.throws(()=>T.current(f.current),/settings differ/);
