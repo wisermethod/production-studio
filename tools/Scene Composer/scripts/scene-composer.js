@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 // Keep the launcher in old JavaScript syntax: help precedes the runtime check.
-var USAGE = 'Scene Composer 0.2.0\n' +
+var USAGE = 'Scene Composer 0.2.1\n' +
   'node scripts/scene-composer.js help\n' +
   'node scripts/scene-composer.js --help\n' +
   'node scripts/scene-composer.js compose --spec <file.json> --output <new dir>\n' +

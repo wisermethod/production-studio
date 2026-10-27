@@ -102,10 +102,6 @@ function page(D) {
   const family = D.fonts.length ? JSON.stringify(D.fonts[0].family) : 'sans-serif';
   const faces = D.fonts.map(f => `@font-face { font-family: ${JSON.stringify(f.family)}; src: url("${f.file}"); font-weight: ${f.weight}; font-style: ${f.style}; font-display: block; }`).join('\n');
   const c = D.colors, s = D.captions.style;
-  // Every element whose opacity changes stays on a compositing layer of its own from the first seek, so a frame never
-  // depends on whether an earlier seek in the same browser had promoted it mid-fade: without this, text drawn after a
-  // fade differed by one or two levels between one render worker and several. Nothing is marked for transform: a
-  // layer so marked is rasterized at one scale and resized, so a zoom's detail would depend on when it was drawn.
   const css = `${faces}
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body, #root { width: ${D.width}px; height: ${D.height}px; overflow: hidden; }

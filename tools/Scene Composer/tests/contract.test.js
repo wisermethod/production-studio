@@ -14,7 +14,7 @@ function bad(name,change,pattern=/Correct|help/){test(name,t=>{const f=fixture(t
 const seconds=s=>({seconds:s}),word=(s,n=1)=>({word:s,occurrence:n});
 
 test('help before version and no imports on old runtimes',()=>{
-  assert.match(run(['help'],'0.1.0'),/Scene Composer 0.2.0/);
+  assert.match(run(['help'],'0.1.0'),/Scene Composer 0.2.1/);
   assert.match(run(['--help'],'0.1.0'),/--spec/);
   for(const c of ['compose','captions'])assert.throws(()=>run([c],'21.9.0'),new RegExp(`${c} refuses Node 21`));
   for(const c of ['help','--help']){const r=call([c]);assert.equal(r.status,0);assert.equal(r.stderr,'');}
@@ -125,7 +125,7 @@ test('linked fonts, optional drawn captions, self-contained seek and no external
   f.spec.captions={mode:'drawn',lines:[{text:'Open',at:word('Open')}],style:{font:'Local',size:18,weight:400,color:'#fff',background:'none',padding:4,radius:3,position:'bottom',margin:8,max_width:300}};
   ok(compose(f));const css=fs.readFileSync(path.join(f.output,'project/style.css'),'utf8'),html=fs.readFileSync(path.join(f.output,'project/index.html'),'utf8'),js=fs.readFileSync(path.join(f.output,'project/scene.js'),'utf8');
   assert.match(css,/@font-face/);assert.match(css,/font-001.woff2/);assert.equal((html.match(/data-video-root/g)||[]).length,1);
-  assert.match(html,/href="style.css"/);assert.doesNotMatch(js,/setTimeout|requestAnimationFrame|setInterval|Date\(/);assert.doesNotMatch(css,/\btransition\s*:|\banimation\s*:/);
+  assert.match(html,/href="style.css"/);assert.doesNotMatch(js,/setTimeout|requestAnimationFrame|setInterval|Date\(/);assert.doesNotMatch(css,/\btransition\s*:|\banimation\s*:/);assert.doesNotMatch(css+js,/will-change/,'video-render 0.2.0 forbids will-change inside the zooming camera');
   assert.doesNotMatch(js,/\/var\/|\.json"/);
   // Execute the actual emitted listener with a tiny DOM, including backwards seeks.
   const elements=new Map();
