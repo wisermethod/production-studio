@@ -3,7 +3,7 @@ name: Scene Composer
 type: tool
 category: media
 description: Composes one still walkthrough scene into a seek-driven HTML project, writes a scene's caption track and timing from its narration alone, and joins scene caption tracks
-version: 0.2.0
+version: 0.2.1
 gaps:
   - Composing a scene from more than one still
   - Choosing the side of its rectangle a callout's label sits on
@@ -218,13 +218,13 @@ Work success is one JSON object on stdout and exit 0. Help prints usage. Failure
 
 `captions` stdout holds `cues` and the written SRT's `sha256`. It writes only the requested SRT.
 
-Every seek sets every visual state from `detail.time` alone, including seeks in reverse order and the first seek in a fresh browser. Every element whose opacity changes is kept on a compositing layer of its own from the first seek (`will-change: opacity`), so a frame drawn after a fade is the same whether or not the same browser drew the fade: without it, text after a fade differed by one or two levels between one render worker and several. Nothing is marked `will-change: transform`: a layer so marked is rasterized at one scale and resized, so a zoom's detail would depend on when that browser drew it. So one render worker and several draw the same frames for every fade, every appearance and each move's arrival frame, but not for every frame inside a move: measured 2026-10-26 through `video-render` 0.1.0, a camera's return to the full still with the pointer travelling drew seven mid-move frames up to 3 levels apart. There are no timers, animation frames, CSS animations or transitions, retained playback position, external libraries or external-origin loads. The project follows `wiser/tools/video-render/TOOL.md` The project.
+Every seek sets every visual state from `detail.time` alone, including seeks in reverse order and the first seek in a fresh browser. Nothing is marked `will-change`: every element but the chip and drawn captions sits inside the camera, whose scale changes, where `wiser/tools/video-render/TOOL.md` The project forbids it, and a page with every hint removed drew the same frames on every render, where the hints let one-worker renders differ. Rendered on `video-render` 0.2.0 or later, whose default is one worker and whose cache key holds the worker count, a scene draws the same frames on every render. There are no timers, animation frames, CSS animations or transitions, retained playback position, external libraries or external-origin loads. The project follows `wiser/tools/video-render/TOOL.md` The project.
 
 ## Script Contract
 
 Follows `wiser/standards/script-contract.md`; the running contract is `wiser/tools/RUNNING.md`. Importing the launcher runs no command. The implementation imports built-ins and files within this tool only. No package or credential is read and no install runs. The complete write inventory is `tools/AGENTS.md`.
 
-Tests run from this directory with `node --test tests/*.test.js`. They create and remove their own directories under the OS temporary directory; set `TMPDIR` to a caller-owned scratch directory to contain them. `SCENE_COMPOSER_VIDEO_RENDER` names an absolute installed `video-render.js` entry for optional rendering tests. Without it those tests skip visibly; with it they render twice and compare decoded `frames.sha256`, render an intermediate MP4 and request selected frames. No test installs anything. `SCENE_COMPOSER_TEST_ASSETS`, optional, names a scratch directory holding `still.png`, `font.woff2` and `take.json` for the supplied-asset test; its font also enables drawn text in the renderer test. These variables configure tests only, not the tool.
+Tests run from this directory with `node --test tests/*.test.js`. They create and remove their own directories under the OS temporary directory; set `TMPDIR` to a caller-owned scratch directory to contain them. `SCENE_COMPOSER_VIDEO_RENDER` names an absolute installed `video-render.js` entry for optional rendering tests. Without it those tests skip visibly; with it they render the default twice and once with `--workers 1` and compare decoded `frames.sha256`, render an intermediate MP4 and request selected frames. No test installs anything. `SCENE_COMPOSER_TEST_ASSETS`, optional, names a scratch directory holding `still.png`, `font.woff2` and `take.json` for the supplied-asset test; its font also enables drawn text in the renderer test. These variables configure tests only, not the tool.
 
 ## Troubleshooting
 
