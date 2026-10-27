@@ -14,7 +14,7 @@ Not for making or remaking a production. Judge it as a whole and over its life, 
 
 - **Brief:** a video whose parts each pass their own checks and which still does not teach what its brief says, to its viewer.
 - **Stale:** a video of a product that has changed since its capture, or a change that remade a scene it did not touch or left one it did.
-- **Exposure:** a frame showing the member's details, an upload that is not unlisted or private first, a new playlist that is not private, or a replacement breaking the link to the current upload.
+- **Exposure:** a frame showing the member's details, an upload that is not unlisted or private first, a new playlist that is not private or an existing playlist that is public, or a replacement breaking the link to the current upload.
 - **Cost:** spend beyond what the member approved.
 
 Owns: `skills/Produce Video/`, `skills/Set Up Voice Clone/`, `skills/Publish Video/`
@@ -57,7 +57,7 @@ Read every scene in order and every frame handed over. Present blocking findings
 2. **Stale.** Do the dated captures and comparisons support the product steps shown now, and do each phase's kept or remade outcomes agree with the confirmed change and its input identities?
    - Yes: pass on stale, naming that currency is bounded by the supplied capture dates, never a claim about unseen live state.
    - No: name every affected scene and differing still or phase identity, what is obsolete or unnecessarily remade, its viewer or member cost and the minimal fix. Fresh capture and a corrected touched set belong to `Produce Video`; a script outside its authorized set to `Write Script`; a stale or unnecessarily remade take to `Narrate`, scene to `Animate Scenes`, or assembly to `Assemble Video`. Changed shared settings may legitimately change several keys; compare their recorded inputs before calling unchanged work remade without cause.
-3. **Exposure.** Is the privacy report complete and clean for this video, is every supplied frame free of visible member details, and do the recorded publication choices and current-upload links support an unlisted or private first upload, a private new playlist and a replacement that keeps the current upload linked?
+3. **Exposure.** Is the privacy report complete and clean for this video, is every supplied frame free of visible member details, and do the recorded publication choices and current-upload links support an unlisted or private first upload, a private new playlist or an existing playlist that is not public, and a replacement that keeps the current upload linked?
    - Yes: pass only this evidence on exposure. A clean check is the matchers' result, not proof that nothing personal shows; one frame per scene does not establish every frame's visual privacy. Unspecified publishing choices are still owed to Publish Video's own pre-write plan and member confirmations, never invented here.
    - No: name the scene and frame number, or the version's publication choice or broken link, without repeating personal text; state the member cost and minimal fix. Capture redaction or missing verification belongs to `Produce Video`; a detail introduced into a made scene to `Animate Scenes`; first-upload privacy, a new playlist's privacy or replacement links to `Publish Video`. An unspecified choice alone is no adverse choice, but no later non-private new playlist may proceed on this verdict. A hit, unreadable frame or absent report blocks ship.
 4. **Cost.** Does the approval cover the reported billed work, including retakes, without spend above its approved amount?
