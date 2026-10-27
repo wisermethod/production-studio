@@ -152,7 +152,7 @@ function sourceClock(file) {
   return {...s,basis:'unknown',removed:0,stated:null};
 }
 function recordSource(dir, record) { return path.join(dir,record.cid+(record.route === 'chatterbox' ? '.source.wav' : '.mp3')); }
-function transcriptPath(dir, id, name, legacy = false) {
+function transcriptPath(dir, id, name, legacy = false, result = 'pass') {
   string(name,'transcript');
   const prefix = id + '-transcript-';
   if (!name.startsWith(prefix) || !/^\d{4}-\d\d-\d\d\.txt$/.test(name.slice(prefix.length))) fail('transcript name must match this cid and transcript date');
@@ -161,9 +161,11 @@ function transcriptPath(dir, id, name, legacy = false) {
   const named = path.join(dir,name), file = I.regular(named);
   const text = I.utf8(I.read(file));
   if (file !== named || !text.trim()) fail('transcript must be present and nonempty beside the take');
-  // Transcribe Audio's artifact has a header and a nonempty speech body. The
-  // audio basename in retained/copy-filed evidence may predate this local cid.
-  if (!legacy && !/^TRANSCRIPT\r?\n\r?\nAudio file: [^\r\n]+\.wav\r?\nTranscribed: \d{4}-\d\d-\d\d \d\d:\d\d:\d\d\r?\nModel: [^\r\n]+\r?\n\r?\n\s*\S/.test(text)) fail('transcript format must have Transcribe Audio header and speech body');
+  // A failed recognition can retain just the header; pass requires speech.
+  // The audio basename in copied evidence may predate this local cid.
+  const header = /^TRANSCRIPT\r?\n\r?\nAudio file: [^\r\n]+\.wav\r?\nTranscribed: \d{4}-\d\d-\d\d \d\d:\d\d:\d\d\r?\nModel: [^\r\n]+\r?\n\r?\n/.exec(text);
+  if (!legacy && !header) fail('transcript format must have Transcribe Audio header');
+  if (result === 'pass' && !(header ? text.slice(header[0].length) : text).trim()) fail('passing transcript must have a nonempty speech body');
   return file;
 }
 function validateRecord(production, recordPath, providedSettings) {
@@ -230,7 +232,7 @@ function validateData(production, resolved, r, providedSettings) {
     } else {
       object(r.check,'check',['result','transcript']);
       if (!['pass','fail'].includes(r.check.result)) fail('check result must be pass, fail or unchecked');
-      transcriptPath(dir,r.cid,r.check.transcript,rt === 'xai');
+      transcriptPath(dir,r.cid,r.check.transcript,rt === 'xai',r.check.result);
       if (rt === 'xai' && !english(r.inputs.language) && r.check.result === 'pass') fail('non-English take must use unchecked');
     }
   }

@@ -108,6 +108,35 @@ test('completion adds only caller check without synthesis and refuses changed ev
   fs.writeFileSync(expected,I.read(f.record)); write(f.o.check,{result:'fail',transcript:path.basename(f.transcript)});
   assert.throws(()=>T.file({...f.o,expected}),/change existing/);
 });
+test('header-only transcript files as fail, never pass or current, preserving the prior pointer',t=>{
+  for(const route of ['chatterbox','elevenlabs']) {
+    const f=fixture(t,route); T.current(f.current);
+    const prior=I.read(f.registry), transcript=transcriptText(f.st.cid).replace('New board.\n','');
+    fs.writeFileSync(f.current.expected,prior);
+    mutate(f,r=>delete r.check);
+    const expected=path.join(f.temp,'unchecked-take.json'); fs.writeFileSync(expected,I.read(f.record));
+    for(const text of [transcript,transcript.replace(/\n/g,'\r\n')+' \t\r\n']) {
+      fs.writeFileSync(f.transcript,text);
+      assert.throws(()=>T.file({...f.o,expected}),/speech body/);
+      assert.deepEqual(I.read(f.record),I.read(expected));
+    }
+    write(f.o.check,{result:'fail',transcript:path.basename(f.transcript)});
+    const result=T.file({...f.o,expected});
+    assert.equal(result.valid,true); assert.equal(result.eligible,false);
+    assert.deepEqual(result.reasons,['check failed']);
+    assert.equal(T.validate({...f.current}).eligible,false);
+    assert.throws(()=>T.current(f.current),/ineligible.*check failed/);
+    assert.deepEqual(I.read(f.registry),prior);
+    assert.equal(fs.readFileSync(f.transcript,'utf8'),transcript.replace(/\n/g,'\r\n')+' \t\r\n');
+    fs.writeFileSync(f.transcript,transcript);
+    assert.equal(T.validate({...f.current}).valid,true);
+    assert.equal(T.validate({...f.current}).eligible,false);
+    fs.writeFileSync(f.transcript,'not a Transcribe Audio header\n');
+    assert.throws(()=>T.validate({...f.current}),/transcript.*header|transcript.*format/);
+    fs.writeFileSync(f.transcript,'');
+    assert.throws(()=>T.validate({...f.current}),/transcript.*nonempty/);
+  }
+});
 test('changed prior registry and byte-only changes refuse, unrelated scenes retained',t=>{
   const f=fixture(t); T.current(f.current);
   assert.throws(()=>T.current({...f.current,expected:f.registry}),/separate prior snapshot/);
