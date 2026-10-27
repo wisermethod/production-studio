@@ -3,7 +3,7 @@ name: Publish Video
 type: skill
 category: media
 description: A finished production published unlisted on the member's YouTube channel with captions, a custom thumbnail, chapter timestamps and a playlist item, recorded with its current version or what remains incomplete
-version: 0.1.0
+version: 0.1.1
 memory:
   - design
 gaps:
@@ -16,7 +16,7 @@ gaps:
 
 Makes no video, caption file, chapter list or script, writes no site, and deletes no video, playlist or caption track on YouTube. Removing a superseded playlist item removes only that link. It never makes a video public as part of a publish. Use for a finished production's first unlisted upload, a replacement, a re-check of a recorded upload, or the member's separate request to make a named upload public. Publishing to a video host other than YouTube is this skill's gap; name it and stop that ask.
 
-No expert of this plugin owns this skill yet, so its own file names its gate: the member's yes at each gateway stop.
+The Producer owns this skill, its gate run in `Produce Video` before a production reaches this skill; this skill's own gate still runs here: the member's yes at each gateway stop.
 
 Classifier seam: none.
 

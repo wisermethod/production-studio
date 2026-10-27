@@ -10,6 +10,7 @@ Personas that carry a perspective, judge work through it, and sequence the skill
 |--------|-------------|------|
 | `Animator/EXPERT.md` | Judge a narrated video's made scenes for timing, target, hold and motion that reads as one video, returning ship or event-specific findings with viewer cost and a minimal fix | `skills/Animate Scenes/` |
 | `Editor/EXPERT.md` | Judge an assembled video where its scenes meet for splice, drift, gap and follow, returning ship for its key or findings with viewer cost, a minimal fix and its owner | `skills/Narrate/`, `skills/Assemble Video/` |
+| `Producer/EXPERT.md` | Judge a training video as a whole and over its versions for brief, stale, exposure and cost, returning ship for its video key or findings with viewer or member cost, a minimal fix and its owner skill | `skills/Produce Video/`, `skills/Set Up Voice Clone/`, `skills/Publish Video/` |
 
 ### Writing
 

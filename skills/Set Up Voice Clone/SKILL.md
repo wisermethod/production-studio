@@ -3,7 +3,7 @@ name: Set Up Voice Clone
 type: skill
 category: media
 description: One person's voice clone, found in the member's xAI team and confirmed by the member, recorded for later productions with the answer to the one consent question where it was asked, or a named stop
-version: 0.1.0
+version: 0.1.1
 gaps:
   - Cloning a person's likeness
   - A voice clone for a member where xAI does not offer voice clones
@@ -29,6 +29,7 @@ This plugin's `AGENTS.md`, Standing constraint, says:
 `skills/Play Author/` in `wiser`, Writing Process step 10, forbids a rights or provenance check on material a person hands a skill. This question stays: it asks whether to clone a person at all, before anything is handed over.
 
 The speaker's act in xAI's console and the member's confirmation of the listed match are this setup's gate. Never drive a browser into the console.
+The Producer owns this skill; this setup's own gate, the speaker's act and the member's confirmation above, still runs here.
 Cloning a person's likeness is a gap of this skill; name it and stop that ask.
 
 Classifier seam: none.
