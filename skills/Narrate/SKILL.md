@@ -3,7 +3,7 @@ name: Narrate
 type: skill
 category: media
 description: Narration for supplied scenes in the member's voice clone, filed with take records and word timings, each English take checked sentence by sentence
-version: 0.1.0
+version: 0.1.1
 gaps:
   - Checking a take narrated in a language other than English
 ---
@@ -16,7 +16,7 @@ Not for writing or editing the script, creating a voice clone, deciding which sc
 
 This skill takes no sample and clones nothing. Under this plugin's Standing constraint, the one consent ask belongs to cloning. Ask no consent or rights question about the voice clone or the script.
 
-No expert of this plugin owns this skill yet, so its own file names its gate: the member's yes to the cost, step 5, before any billed call, and each take's check, step 8, before it becomes current.
+The Editor owns this skill, judging its takes where they meet their neighbours in the assembled video. This skill's own gates still run here: the member's yes to the cost, step 5, before any billed call, and each take's check, step 8, before it becomes current.
 
 Classifier seam: none.
 

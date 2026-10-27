@@ -4,7 +4,7 @@ What this plugin does not do, declared by the primitive that names it.
 
 A gap is a capability this root does not provide that a primitive's own body names as missing (`wiser/standards/primitives.md`). This file collects every declared `gaps` entry, by hand, and is corrected whenever a primitive's gaps change. It carries capability gaps only, and names what is missing, never where it went.
 
-Counted 2026-10-26: 11 gaps across 6 primitives. Bullet count: `grep -E '^- ' system/GAPS.md | wc -l` returns 11, and the same count derived from the primitives' own `gaps:` frontmatter returns 11.
+Counted 2026-10-27: 12 gaps across 7 primitives. Bullet count: `grep -E '^- ' system/GAPS.md | wc -l` returns 12, and the same count derived from the primitives' own `gaps:` frontmatter returns 12.
 
 ## Skills
 
@@ -12,6 +12,10 @@ Counted 2026-10-26: 11 gaps across 6 primitives. Bullet count: `grep -E '^- ' sy
 
 - Captions in a written form different from the words narrated
 - Drawn captions over an explainer scene
+
+### Assemble Video
+
+- Cutting a screen recording into a production's scenes
 
 ### Narrate
 
