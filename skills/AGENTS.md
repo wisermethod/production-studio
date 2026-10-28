@@ -8,7 +8,7 @@ Capabilities a user invokes by name for their output; `wiser/standards/primitive
 
 | Skill | Description | Owner |
 |-------|-------------|-------|
-| `Animate Scenes/SKILL.md` | Supplied walkthrough and explainer scenes animated to their narration's word cues, rendered as video segments with captions and a scene record, each ready only after the Animator's review | Animator |
+| `Animate Scenes/SKILL.md` | Walkthroughs and explainers animated to narration's word cues, and, with a HeyGen account, avatar scenes speaking the current take and bottom-right avatar windows over a narration span, using narration uploads and paid render requests with cost disclosed, each segment ready only after the Animator's review | Animator |
 | `Assemble Video/SKILL.md` | A production's ready scenes assembled with matched narration, one finished video and joined captions, read back and handed on only under the Editor's ship verdict for its key | Editor |
 | `Narrate/SKILL.md` | Narration for supplied scenes through the root's ElevenLabs, HeyGen or free local route in the selected person's voice clone, filed with word timings and each English take checked sentence by sentence | Editor |
 | `Produce Video/SKILL.md` | One long-form training video produced from a brief or changed from one sentence, with fresh redacted product stills, a production record, a finished-frame privacy check and the Producer's verdict before publishing | Producer |
