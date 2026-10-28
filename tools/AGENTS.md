@@ -4,7 +4,7 @@ Deterministic operations that skills and experts call; `wiser/standards/primitiv
 
 ## Installing
 
-Scene Composer installs nothing.
+Scene Composer and Narration Takes install nothing.
 
 Timeline installs its 35 exact wheel pins, about 95 MB per interpreter, from `pypi.org` and `files.pythonhosted.org`, into its own `.venv/`. Consent follows `wiser/tools/RUNNING.md`. An authorized render installs and finishes the cut. Nothing installs into the machine's Python.
 
@@ -12,6 +12,9 @@ Timeline installs its 35 exact wheel pins, about 95 MB per interpreter, from `py
 
 | What | Where | Which tools |
 |------|-------|-------------|
+| Staged MP3 or retained source WAV, resumable take JSON with source and aligned-WAV identities and a cid-bound transcript filename, and narration registry | Caller-named production, under `narration/<scene>/` and `narration/narration.json` | Narration Takes |
+| New-record, completion and registry publication sibling and writer lock | `.narration-takes-<uuid>.tmp` beside the target record and `.narration-takes.lock` in the narration directory; ordinary failures remove them, a kill can retain them | Narration Takes |
+| Offline test WAVs (including FFmpeg-decoded MP3), fabricated evidence and staged copies | OS-temporary `narration-takes-test-*` directories, removed after each case; a kill can retain them | Narration Takes tests |
 | HTML project page, linked stylesheet and seek script | New caller-named `--output` directory, under `project/` | Scene Composer |
 | Still and font copies under fixed names | The same output's `project/` directory | Scene Composer |
 | Scene caption track, captions.srt | The same output directory | Scene Composer |
@@ -30,6 +33,7 @@ Timeline installs its 35 exact wheel pins, about 95 MB per interpreter, from `py
 
 | Tool | Description |
 |------|-------------|
+| `Narration Takes/TOOL.md` | Stage narration sources, file and validate take evidence, and update an eligible scene current pointer against its expected prior registry |
 | `Scene Composer/TOOL.md` | Composes one still walkthrough scene into a seek-driven HTML project, writes a scene's caption track and timing from its narration alone, and joins scene caption tracks |
 | `Timeline/TOOL.md` | Cuts silent recordings to exact planned frames and writes a BT.709 video, an OpenTimelineIO timeline and processing records |
 
