@@ -15,9 +15,10 @@ function stage(o) {
   if (I.stat(o.source)?.isSymbolicLink()) fail('source must not be a symbolic link');
   const source = I.regular(o.source);
   let id;
-  if (o.route === 'elevenlabs') {
-    id = M.cid(path.basename(source,'.mp3'));
-    if (path.basename(source) !== id+'.mp3' || path.basename(path.dirname(source)) !== 'outputs') fail('gateway source must be UUID.mp3 directly inside outputs');
+  if (o.route !== 'chatterbox') {
+    const extension = o.route === 'heygen' ? '.wav' : '.mp3';
+    id = M.cid(path.basename(source,extension));
+    if (path.basename(source) !== id+extension || path.basename(path.dirname(source)) !== 'outputs') fail('gateway source must be UUID'+extension+' directly inside outputs');
     if (o.cid !== undefined && M.cid(o.cid) !== id) fail('cid differs from gateway source name');
     if (I.inside(I.canonical(o.production),path.dirname(path.dirname(source)))) fail('production must resolve outside the gateway home');
   } else {
@@ -26,7 +27,7 @@ function stage(o) {
     id = I.crypto.randomUUID();
   }
   const dir = M.folder(o.production,o.scene,true);
-  const output = I.destination(path.join(dir,id+(o.route === 'chatterbox' ? '.source.wav' : '.mp3')));
+  const output = I.destination(M.recordSource(dir,{cid:id,route:o.route}));
   M.matches(source,expected);
   fs.mkdirSync(dir,{recursive:true});
   // Exclusive copy works on the same device and across volumes; no rename may
@@ -34,7 +35,7 @@ function stage(o) {
   fs.copyFileSync(source,output,fs.constants.COPYFILE_EXCL);
   const fd = fs.openSync(output,'r'); try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
   M.matches(output,expected); M.matches(source,expected);
-  if (o.route === 'elevenlabs') fs.unlinkSync(source);
+  if (o.route !== 'chatterbox') fs.unlinkSync(source);
   return {ok:true,route:o.route,scene:o.scene,cid:id,source:output,file:expected};
 }
 function prepared(v, rt) {
@@ -65,7 +66,7 @@ function fileUnlocked(o) {
   if (st.ok !== true) fail('stage was not successful');
   M.route(st.route); M.scene(st.scene); M.cid(st.cid);
   const dir = M.folder(o.production,st.scene,true), recordPath = I.destination(path.join(dir,st.cid+'.json'),false);
-  const expectedSource = path.join(dir,st.cid+(st.route === 'chatterbox' ? '.source.wav' : '.mp3'));
+  const expectedSource = M.recordSource(dir,st);
   if (I.regular(st.source) !== expectedSource) fail('stage source does not match this production, scene and cid');
   M.matches(expectedSource,st.file);
   const p = I.json(o.prepared); prepared(p,st.route);
