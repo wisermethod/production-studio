@@ -85,7 +85,7 @@ Split the teaching into scenes a viewer can follow and a change can touch alone.
 
 Does a scene need both stills and cue frames, or cue frames from more than one recording?
 
-- Yes: split it at the sentence where its source changes, into scenes whose cues each cite only stills or only cue frames of one recording; the first keeps the scene's id and each added scene takes a new id, as step 4 splits an overlong scene. On a change, split only scenes the caller or member named under step 1; an unnamed scene stays byte-identical and its needed split is a draft reason until named.
+- Yes: split it where its source changes, into scenes whose cues each cite only stills or only cue frames of one recording; the first keeps the scene's id and each added scene takes a new id, as step 4 splits an overlong scene. Split between sentences, rewriting through step 4 a sentence that names both sources; drop a `[pause]` the split leaves at a scene's start or end, since the scene boundary is that pause and narration cannot open or close on one; and recount every `At` occurrence in each scene the split makes. On a change, split only scenes the caller or member named under step 1; an unnamed scene stays byte-identical and its needed split is a draft reason until named.
 - No: keep its source together in that scene.
 
 ### 4. The ear
@@ -120,12 +120,12 @@ For every cue, is its still or cue frame in `<capture>` and available under step
 
 Does any scene's cue table now cite both a still and a cue frame, or cue frames of two recordings? Yes: name it as a draft reason and split it through step 3. No: continue.
 
-In each scene citing a recording, take its cues in narration order, by their `At` words' places in the scene, skipping a cue whose frame is missing or has no interval, which stays `unchecked` as above. The cut plays the recording forward, so no cue may cite a frame from earlier in the run than the cue before it. Does any interval's `start` fall before the previous compared cue's `start`?
+In each scene citing a recording, take its cues in narration order, by their `At` words' places in the scene, skipping a cue whose frame is missing or has no interval, which stays `unchecked` as above. The cut plays the recording forward, so a cue can show only a frame at or after the one the cue before it showed. Does any cue's interval end at or before the previous compared cue's interval starts, so that every frame of it lies earlier in the run?
 
-- No: continue to the step coverage check. Two cues citing one interval, or intervals starting together, are one screen: their frames show no order between those two cues, so the step coverage check below still asks whether the capture shows the steps they teach, in order.
+- No: continue to the step coverage check. Overlapping intervals, one interval cited twice, or intervals starting together show no order between those cues: a forward cut can show both, but the frames do not show a step between them.
 - Yes: name each such cue and both intervals as a draft reason. Where a later cue names something the run shows only earlier, ask for a cue frame later in the run that shows it, or for the steps recorded in their taught order. Never reorder the narration's steps to fit the frames.
 
-Does the capture show every product step the brief asks to teach, in the order the script uses?
+Does the capture show every product step the brief asks to teach, in the order the script uses? In a recorded scene, a step that changes the screen is shown only by a cue frame of the screen it leads to whose interval starts at or after the previous compared cue's interval ends; cues on overlapping intervals show one screen, not a step between them.
 
 - Yes: continue to the reviews.
 - No: name each missing step or unsupported order to the member. Leave it out of factual narration, ask for the needed fresh stills or cue frames, and keep the script a draft; never fill the absence from memory of the product.
