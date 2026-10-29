@@ -91,14 +91,14 @@ UTF-8 JSON. Unknown keys at every specification or list level and duplicate keys
 An object with exactly one required key, `narration`: a nonempty string containing the scene's exact narration text, including its tags. The command produces the value a caller places in `captions.lines`, using these rules in order:
 
 1. Remove complete square-bracket and angle-bracket tags without inserting spaces. The matches are exactly `/\[[^\]]*\]|<[^>]*>/gu`, read left to right without overlap: an opener through the next matching closer, with any intervening characters. An unmatched opener remains text. Thus `New<emphasis>board</emphasis>` becomes the single word `Newboard`.
-2. Split words on runs of characters matched by `/[\s\p{White_Space}]/u`, ignoring leading and trailing whitespace. Keep each token's spelling, case and attached punctuation. These are the same original-script tokens a narration take's word timings carry, as defined in `wiser/tools/Speech Preparation/TOOL.md`, Operations, text.
+2. Split words on runs of characters matched by `/[\s\p{White_Space}]/u`, ignoring leading and trailing whitespace. Keep each token's spelling, case and attached punctuation. For a narration `wiser/tools/Speech Preparation/TOOL.md` accepts, these are the same original-script tokens its take's word timings carry (Operations, text). A narration it refuses, such as one opening on a pause, holding a bracket tag other than `[pause]` and `<emphasis>`, or a token with no letter or digit, still gets lines here, but no take of those bytes carries them, so `timing` cannot resolve them against one.
 3. End a sentence at a word ending in `.`, `?` or `!` after disregarding any trailing closing marks for this check. Closing marks are ASCII `"` and `'` and every Unicode Pe (closing punctuation) or Pf (final punctuation) character. The marks remain in the caption text. Any words after the last sentence stop form a final sentence, even without a stop.
 4. Join each sentence's words with single U+0020 spaces. If its line exceeds 84 Unicode code points, split at the last space whose zero-based code-point index is at most 84. Keep the part before that space as a line and repeat on the remainder until every line fits. A character outside the Basic Multilingual Plane counts once, never as two UTF-16 units.
 5. If an overlong line has no space at or before index 84, refuse by naming its first word, which exceeds 84 code points. No word is broken or shortened.
 6. Give each line `at: { "word": <first token>, "occurrence": <n> }`. Count that exact token, including case and punctuation, from 1 across all narration words through this first token, including words inside earlier lines. The count never restarts at a line or sentence.
 7. Keep words as said. Make no written-form substitution or other word change.
 
-Narration with no words after tag removal is refused by name. A word containing a control character other than whitespace is also refused, naming the word. All resulting caption text is acceptable to `compose` and `timing`; their take matching and timing requirements still apply.
+Narration with no words after tag removal is refused by name. Before any word is made, a narration holding a control character Speech Preparation refuses, U+0000 to U+0008, U+000B, U+000C, U+000E to U+001F, U+007F or U+0085, is refused naming the word that holds it, a tag included; tab, line feed and carriage return separate words, and other controls stay in their word. All resulting caption text is acceptable to `compose` and `timing`; their take matching and timing requirements still apply.
 
 ### Compose specification
 
@@ -254,7 +254,7 @@ Tests run from this directory with `node --test tests/*.test.js`. They create an
 | `unknown key`, `missing field`, `must be`, `duplicate key`, `JSON` | Invalid schema, value or syntax | Apply Specification or Caption list exactly |
 | `narration has no words after removing tags` | Narration contains only tags or whitespace | Supply the scene's narration with at least one word |
 | `narration word ... is longer than 84 code points and cannot split` | A word cannot fit on a caption line | Correct the named narration word; the command never breaks a token |
-| `narration word ... holds a control character other than whitespace` | A token contains an unsupported control | Remove the named control from the narration before retrying |
+| `narration word ... holds an unsupported control character` | The narration holds a control a narration take's script refuses | Remove the named control from the narration before retrying |
 | `word ... occurrence ... absent`, `without take` | Cue cannot resolve | Use an exact token and valid occurrence from the take, or seconds |
 | `past the scene end`, `until must be after at`, `out of time order`, `distinct increasing frames` | Cue ordering or bounds violated | Correct times, interval or list order before composing |
 | `unknown key spec.still` or another drawing key, `unknown key captions.mode`, `unknown key captions.style` | Drawing fields supplied to timing | Use only Timing specification keys |

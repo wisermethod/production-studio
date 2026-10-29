@@ -70,7 +70,7 @@ test('lines keeps incomplete square and angle brackets as text', t => {
   expectLines(t, '[unfinished and <unfinished tail', [line('[unfinished and <unfinished tail')]);
 });
 test('lines separates on the full narration timing whitespace set, keeping no empty words', t => {
-  const separators = [9, 10, 11, 12, 13, 32, 133, 160, 5760, ...Array.from({ length: 11 }, (_, i) => 8192 + i), 8232, 8233, 8239, 8287, 12288, 65279];
+  const separators = [9, 10, 13, 32, 160, 5760, ...Array.from({ length: 11 }, (_, i) => 8192 + i), 8232, 8233, 8239, 8287, 12288, 65279];
   const narration = '\t\r\n' + separators.map(c => `W${String.fromCodePoint(c).repeat(2)}`).join('') + 'W\u00a0\u2003';
   expectLines(t, narration, [line(Array(separators.length + 1).fill('W').join(' '))]);
 });
@@ -120,8 +120,12 @@ test('lines counts exact case and punctuation occurrences across the whole narra
 test('lines preserves words as said, case, numbers, spelling and Unicode normalization', t => {
   expectLines(t, 'Visit example dot com for twenty two. Caf\u00e9 cafe\u0301 22 Ctrl+S.', [line('Visit example dot com for twenty two.'), line('Caf\u00e9 cafe\u0301 22 Ctrl+S.')]);
 });
-test('lines discards controls inside removed tags before checking words', t => {
-  expectLines(t, '[\u0000]<\u007f>Clean.', [line('Clean.')]);
+test('lines refuses a refused control even inside a tag, as a take script does', t => {
+  const f = setup(t);
+  f.spec.narration = '[\u0000]<\u007f>Clean.';
+  const command = args(f), before = tree(f.dir);
+  refused(command, /narration word .*unsupported control character/);
+  assert.deepEqual(tree(f.dir), before);
 });
 
 for (const [name, value, pattern] of [
@@ -131,23 +135,29 @@ for (const [name, value, pattern] of [
   ['unknown key', { narration: 'Open.', extra: true }, /unknown key spec.extra/],
   ...[null, 1, true, [], {}].map(v => [`narration type ${JSON.stringify(v)}`, { narration: v }, /narration must be a nonempty string/]),
   ['empty narration', { narration: '' }, /narration must be a nonempty string/],
-  ['whitespace narration', { narration: ' \t\r\n\u00a0\u0085\u2003' }, /narration.*no words/],
+  ['whitespace narration', { narration: ' \t\r\n\u00a0\u2003' }, /narration.*no words/],
   ['tag-only narration', { narration: '[pause]<emphasis></emphasis>[]<>' }, /narration.*no words/],
   ['85-code-point word', { narration: 'x'.repeat(85) }, /word "x{85}".*longer than 84 code points/],
   ['85 non-BMP code points', { narration: '\u{10400}'.repeat(85) }, /word.*longer than 84 code points/],
   ['long word after a fitting prefix', { narration: 'Short prefix ' + 'x'.repeat(85) }, /word "x{85}".*longer than 84 code points/],
   ['long word after a sentence', { narration: 'Fine. ' + 'x'.repeat(85) }, /word "x{85}".*longer than 84 code points/]
 ]) bad(name, value, pattern);
-test('lines refuses every non-whitespace control in a word without writing', t => {
+test('lines refuses exactly the controls a take script refuses, naming the word, without writing', t => {
   const f = setup(t);
-  for (let c = 0; c <= 159; c++) {
-    const char = String.fromCodePoint(c);
-    if (!/\p{Cc}/u.test(char) || /[\s\p{White_Space}]/u.test(char)) continue;
-    f.spec.narration = `bad${char}word`;
+  const refusedSet = [...Array.from({ length: 9 }, (_, i) => i), 11, 12, ...Array.from({ length: 18 }, (_, i) => 14 + i), 127, 133];
+  for (const c of refusedSet) {
+    f.spec.narration = `Say bad${String.fromCodePoint(c)}word now.`;
     const command = args(f), before = tree(f.dir);
-    const r = refused(command, /narration word .*control character/);
-    assert.ok(r.stderr.includes(JSON.stringify(f.spec.narration)));
+    const r = refused(command, /narration word .*unsupported control character/);
+    assert.ok(r.stderr.includes(JSON.stringify(`bad${String.fromCodePoint(c)}word`)), `U+${c.toString(16)}`);
     assert.deepEqual(tree(f.dir), before);
+  }
+});
+test('lines keeps the other C1 controls inside their word, as a take script does', t => {
+  for (let c = 128; c <= 159; c++) {
+    if (c === 133) continue;
+    const word = `beep${String.fromCodePoint(c)}`;
+    expectLines(t, `Say ${word} now.`, [line(`Say ${word} now.`)]);
   }
 });
 for (const [name, raw, pattern] of [

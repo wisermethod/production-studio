@@ -32,11 +32,17 @@ function text(v, name) {
 function normalizeLines(spec) {
   object(spec, 'spec', ['narration']);
   if (typeof spec.narration !== 'string' || !spec.narration.length) fail('narration must be a nonempty string');
+  // The controls a narration take's script refuses anywhere, tags included; tab, line feed and carriage return
+  // remain word separators. U+000B, U+000C and U+0085 would otherwise split words a take keeps whole.
+  const control = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u0085]/u;
+  if (control.test(spec.narration)) {
+    const word = spec.narration.split(/[\t\n\r\p{Zs}\u2028\u2029\uFEFF]+/u).find(w => control.test(w));
+    fail(`narration word ${JSON.stringify(word)} holds an unsupported control character`);
+  }
   const words = spec.narration.replace(/\[[^\]]*\]|<[^>]*>/gu, '').split(/[\s\p{White_Space}]+/u).filter(Boolean);
   if (!words.length) fail('narration has no words after removing tags');
   const occurrences = new Map();
   const tokens = words.map(word => {
-    if (/\p{Cc}/u.test(word)) fail(`narration word ${JSON.stringify(word)} holds a control character other than whitespace`);
     const occurrence = (occurrences.get(word) || 0) + 1;
     occurrences.set(word, occurrence);
     return { word, occurrence };
