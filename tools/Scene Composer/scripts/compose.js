@@ -4,7 +4,7 @@ const path = require('node:path');
 const { createHash } = require('node:crypto');
 const { screen, bytes, utf8 } = require('./paths.js');
 const { parse, json, fail, Q } = require('./rational.js');
-const { normalize, normalizeTiming, object, list, number } = require('./spec.js');
+const { normalize, normalizeTiming, normalizeLines, object, list, number } = require('./spec.js');
 const { page } = require('./page.js');
 const srt = require('./srt.js');
 const sha = value => createHash('sha256').update(value).digest('hex');
@@ -28,6 +28,14 @@ function timing(input, output) {
   files.push({ path: 'timing.json', bytes: Buffer.from(json(record)) });
   writeDirectory(dest, files, 'timing');
   return { ...record, timing_sha256: sha(files.at(-1).bytes) };
+}
+function lines(input, output) {
+  const source = screen(input, '--spec'), dest = screen(output, '--output', true);
+  const raw = bytes(source);
+  const record = { lines: normalizeLines(parse(utf8(raw))), spec_sha256: sha(raw) };
+  const content = Buffer.from(json(record));
+  writeFile(dest, content, 'lines');
+  return { ...record, lines_sha256: sha(content) };
 }
 function writeDirectory(dest, files, command, project = false) {
   // No validation or source reads occur after this point. Own only the directory
@@ -60,13 +68,16 @@ function captions(input, output) {
     }
   }
   const content = Buffer.from(srt.write(cues));
+  writeFile(dest, content, 'captions');
+  return { cues: cues.length, sha256: sha(content) };
+}
+function writeFile(dest, content, command) {
   let fd;
   try {
     fd = fs.openSync(dest, 'wx'); fs.writeFileSync(fd, content); fs.closeSync(fd); fd = undefined;
   } catch (error) {
     if (fd !== undefined) { fs.closeSync(fd); fs.unlinkSync(dest); }
-    fail(`captions could not write new output (${error.code || 'write failure'}); check permissions and disk space`);
+    fail(`${command} could not write new output (${error.code || 'write failure'}); check permissions and disk space`);
   }
-  return { cues: cues.length, sha256: sha(content) };
 }
-module.exports = { compose, timing, captions };
+module.exports = { compose, timing, lines, captions };

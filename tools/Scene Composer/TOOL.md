@@ -2,8 +2,8 @@
 name: Scene Composer
 type: tool
 category: media
-description: Composes one still walkthrough scene into a seek-driven HTML project, writes a scene's caption track and timing from its narration alone, and joins scene caption tracks
-version: 0.2.1
+description: Composes one still walkthrough scene into a seek-driven HTML project, makes a scene's caption lines from its narration text, writes a scene's caption track and timing from its narration alone, and joins scene caption tracks
+version: 0.3.0
 gaps:
   - Composing a scene from more than one still
   - Choosing the side of its rectangle a callout's label sits on
@@ -15,7 +15,7 @@ gaps:
 
 Does not capture a product, narrate, render video, join pictures or mix sound. Capture belongs to `wiser/tools/Screen Capture/TOOL.md`, rendering to `wiser/tools/video-render/TOOL.md`, and editing and sound to `wiser/tools/video-edit/TOOL.md`. Composing a scene from more than one still, and choosing the side of its rectangle a callout's label sits on, are missing in this version.
 
-Use it to turn one scene's still, aligned take record and word cues into a local HTML project and a caption track. Use `timing` for a scene another tool draws: it writes captions and timing from narration alone. Optional drawn captions in `compose` have their own supplied style; an SRT is written in both caption modes. The tool reaches no account, reads no credential, makes no network call and installs nothing.
+Use it to turn one scene's still, aligned take record and word cues into a local HTML project and a caption track. Use `lines` to make a scene's caption lines from its narration, for a caller to pass to `compose` or `timing`. Use `timing` for a scene another tool draws: it writes captions and timing from narration alone. Optional drawn captions in `compose` have their own supplied style; an SRT is written in both caption modes. The tool reaches no account, reads no credential, makes no network call and installs nothing.
 
 Classifier seam: none.
 
@@ -37,6 +37,7 @@ Run from this tool's directory:
 node scripts/scene-composer.js help
 node scripts/scene-composer.js compose --spec /path/to/work/scene.json --output /path/to/work/scene
 node scripts/scene-composer.js timing --spec /path/to/work/timing.json --output /path/to/work/scene-timing
+node scripts/scene-composer.js lines --spec /path/to/work/narration.json --output /path/to/work/lines.json
 node scripts/scene-composer.js captions --list /path/to/work/scenes.json --output /path/to/work/video.srt
 ```
 
@@ -54,7 +55,7 @@ Pass the written `project/` directory, frame width and height, and `compose.json
 
 ## Dependencies
 
-Node 22 or later, proved by `node --version`, for all three work commands. `help` and its top-level `--help` alias answer before the version check, using an old-syntax launcher that loads no implementation module. Built-in modules only, no package dependencies, nothing to install. There is no configuration and no `--env` or `--install` option.
+Node 22 or later, proved by `node --version`, for all four work commands. `help` and its top-level `--help` alias answer before the version check, using an old-syntax launcher that loads no implementation module. Built-in modules only, no package dependencies, nothing to install. There is no configuration and no `--env` or `--install` option.
 
 ## Commands
 
@@ -66,15 +67,16 @@ Node 22 or later, proved by `node --version`, for all three work commands. `help
 | `--help` | Top-level help alias; write nothing |
 | `compose` | Validate one scene, then write one new output directory |
 | `timing` | Validate narration captions and marks without a picture, then write one new output directory |
+| `lines` | Make caption lines from one scene's narration and write one new JSON file |
 | `captions` | Validate and join scene SRTs, then write one new SRT |
 
 Help takes no other arguments. Every other command is refused by name. Work commands below Node 22 are refused by command name. Unknown flags, including a flag belonging only to another command, are refused by name. Repeated flags, missing values, positional extras and equals-form flags are refused. Values follow flags as separate arguments. A refusal leaves stdout empty, exits 1, and writes nothing.
 
 | Flag | Command | Type, default and meaning |
 |------|---------|---------------------------|
-| `--spec <file.json>` | compose, timing | Required absolute path to the command's specification |
+| `--spec <file.json>` | compose, timing, lines | Required absolute path to the command's specification |
 | `--list <file.json>` | captions | Required absolute path to the caption list |
-| `--output <path>` | compose, timing, captions | Required absolute new directory for compose and timing; required absolute new file for captions |
+| `--output <path>` | compose, timing, lines, captions | Required absolute new directory for compose and timing; required absolute new JSON file for lines or SRT file for captions |
 
 ### Caption list
 
@@ -83,6 +85,20 @@ An ordered JSON list, possibly empty, of `{ "srt": "/path/to/work/scene/captions
 ## Specification
 
 UTF-8 JSON. Unknown keys at every specification or list level and duplicate keys are refused. Numbers are JSON numbers, never strings or booleans. Decimal lexemes, including scientific notation, retain their exact rational value for timing calculations. Integers must be safe integers. Null is not an omitted value. No timing, style or motion options exist beyond this schema.
+
+### Lines specification
+
+An object with exactly one required key, `narration`: a nonempty string containing the scene's exact narration text, including its tags. The command produces the value a caller places in `captions.lines`, using these rules in order:
+
+1. Remove complete square-bracket and angle-bracket tags without inserting spaces. The matches are exactly `/\[[^\]]*\]|<[^>]*>/gu`, read left to right without overlap: an opener through the next matching closer, with any intervening characters. An unmatched opener remains text. Thus `New<emphasis>board</emphasis>` becomes the single word `Newboard`.
+2. Split words on runs of characters matched by `/[\s\p{White_Space}]/u`, ignoring leading and trailing whitespace. Keep each token's spelling, case and attached punctuation. These are the same original-script tokens a narration take's word timings carry, as defined in `wiser/tools/Speech Preparation/TOOL.md`, Operations, text.
+3. End a sentence at a word ending in `.`, `?` or `!` after disregarding any trailing closing marks for this check. Closing marks are ASCII `"` and `'` and every Unicode Pe (closing punctuation) or Pf (final punctuation) character. The marks remain in the caption text. Any words after the last sentence stop form a final sentence, even without a stop.
+4. Join each sentence's words with single U+0020 spaces. If its line exceeds 84 Unicode code points, split at the last space whose zero-based code-point index is at most 84. Keep the part before that space as a line and repeat on the remainder until every line fits. A character outside the Basic Multilingual Plane counts once, never as two UTF-16 units.
+5. If an overlong line has no space at or before index 84, refuse by naming its first word, which exceeds 84 code points. No word is broken or shortened.
+6. Give each line `at: { "word": <first token>, "occurrence": <n> }`. Count that exact token, including case and punctuation, from 1 across all narration words through this first token, including words inside earlier lines. The count never restarts at a line or sentence.
+7. Keep words as said. Make no written-form substitution or other word change.
+
+Narration with no words after tag removal is refused by name. A word containing a control character other than whitespace is also refused, naming the word. All resulting caption text is acceptable to `compose` and `timing`; their take matching and timing requirements still apply.
 
 ### Compose specification
 
@@ -216,6 +232,8 @@ Work success is one JSON object on stdout and exit 0. Help prints usage. Failure
 
 `timing` writes exactly these two files. Its marks hold `name`, `seconds`, `frame` and `frame_after` in specification order; `cues` holds the same entries as `compose.json`'s `captions`. The `files` list holds the caption file's relative path and SHA-256, excluding the manifest itself. JSON formatting and destination independence are as for `compose.json`. Stdout holds the same record fields plus `timing_sha256`, the manifest's SHA-256. Given the same frame, narration span, lead, tail and caption lines, timing and compose write byte-identical SRTs and the same frames, duration and cues.
 
+`lines` writes only the new JSON file named by `--output`. It has exactly `lines`, the ordered list of `{ "text", "at": { "word", "occurrence" } }` objects, and `spec_sha256`, the SHA-256 of the exact specification bytes. Keys are sorted recursively, indentation is two spaces, line endings are LF with a final LF, and non-ASCII characters are written as themselves. The file contains no destination, run time or machine identity; identical specification bytes at two destinations produce byte-identical files. Stdout holds the same two fields plus `lines_sha256`, the written file's SHA-256.
+
 `captions` stdout holds `cues` and the written SRT's `sha256`. It writes only the requested SRT.
 
 Every seek sets every visual state from `detail.time` alone, including seeks in reverse order and the first seek in a fresh browser. Nothing is marked `will-change`: every element but the chip and drawn captions sits inside the camera, whose scale changes, where `wiser/tools/video-render/TOOL.md` The project forbids it, and, measured on one scene, a page with every hint removed drew the same frames on six one-worker renders, where the hints let two one-worker renders differ. Rendered on `video-render` 0.2.0 or later at one worker count, its default of one, on one machine, GPU mode and capture mode, a scene draws the same frames on every render, as that tool's own page promises; a different worker count is a different cache entry and is not promised the same frames, since a zoom and a fade over it can differ by how the frames are split. There are no timers, animation frames, CSS animations or transitions, retained playback position, external libraries or external-origin loads. The project follows `wiser/tools/video-render/TOOL.md` The project.
@@ -234,6 +252,9 @@ Tests run from this directory with `node --test tests/*.test.js`. They create an
 | `requires Node >=22` | Work command on old Node | Make `node --version` report at least 22 |
 | `must be absolute`, `protected`, `inside the tool`, `already exists`, `parent is absent`, `canonicalized`, `symbolic link` | Invalid or refused path | Choose an existing readable source and new work destination with a readable existing parent |
 | `unknown key`, `missing field`, `must be`, `duplicate key`, `JSON` | Invalid schema, value or syntax | Apply Specification or Caption list exactly |
+| `narration has no words after removing tags` | Narration contains only tags or whitespace | Supply the scene's narration with at least one word |
+| `narration word ... is longer than 84 code points and cannot split` | A word cannot fit on a caption line | Correct the named narration word; the command never breaks a token |
+| `narration word ... holds a control character other than whitespace` | A token contains an unsupported control | Remove the named control from the narration before retrying |
 | `word ... occurrence ... absent`, `without take` | Cue cannot resolve | Use an exact token and valid occurrence from the take, or seconds |
 | `past the scene end`, `until must be after at`, `out of time order`, `distinct increasing frames` | Cue ordering or bounds violated | Correct times, interval or list order before composing |
 | `unknown key spec.still` or another drawing key, `unknown key captions.mode`, `unknown key captions.style` | Drawing fields supplied to timing | Use only Timing specification keys |
@@ -251,6 +272,7 @@ Tests run from this directory with `node --test tests/*.test.js`. They create an
 - Help works before runtime checks, and every command and flag outside the declared set is refused by name.
 - A compose run writes the local project, frame-aligned SRT and complete payload hash record at a new destination; every refusal writes nothing.
 - A timing run writes only captions.srt and timing.json, using compose's caption and duration arithmetic and reporting each mark's event frame and first frame drawn past it; every refusal writes nothing.
+- A lines run writes narration-derived caption lines with exact first-token occurrences and specification and output hashes; every refusal writes nothing, and identical specification bytes produce identical files at different destinations.
 - Frame resolution, take length and duration follow exact rational arithmetic, including decimal frame boundaries.
 - A scene draws the same frame from any seek order, and two compositions from identical inputs are byte-identical.
 - Joined SRT cues have the supplied offsets, preserve text, are renumbered, and never overlap or reverse order.

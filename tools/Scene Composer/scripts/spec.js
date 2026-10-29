@@ -29,6 +29,40 @@ function text(v, name) {
   if (typeof v !== 'string' || !v.trim() || /[\x00-\x1f\x7f]/.test(v)) fail(`${name} must be a nonempty single-line string without controls`);
   return v;
 }
+function normalizeLines(spec) {
+  object(spec, 'spec', ['narration']);
+  if (typeof spec.narration !== 'string' || !spec.narration.length) fail('narration must be a nonempty string');
+  const words = spec.narration.replace(/\[[^\]]*\]|<[^>]*>/gu, '').split(/[\s\p{White_Space}]+/u).filter(Boolean);
+  if (!words.length) fail('narration has no words after removing tags');
+  const occurrences = new Map();
+  const tokens = words.map(word => {
+    if (/\p{Cc}/u.test(word)) fail(`narration word ${JSON.stringify(word)} holds a control character other than whitespace`);
+    const occurrence = (occurrences.get(word) || 0) + 1;
+    occurrences.set(word, occurrence);
+    return { word, occurrence };
+  });
+  const lines = [];
+  let sentence = [];
+  function splitSentence() {
+    let part = [], length = 0;
+    const emit = () => lines.push({ text: part.map(t => t.word).join(' '), at: part[0] });
+    for (const token of sentence) {
+      const size = Array.from(token.word).length;
+      if (size > 84) fail(`narration word ${JSON.stringify(token.word)} is longer than 84 code points and cannot split`);
+      // Packing whole words chooses the last space at or before index 84.
+      if (part.length && length + 1 + size > 84) { emit(); part = []; length = 0; }
+      length += (part.length ? 1 : 0) + size; part.push(token);
+    }
+    if (part.length) emit();
+    sentence = [];
+  }
+  for (const token of tokens) {
+    sentence.push(token);
+    if (/[.?!]$/u.test(token.word.replace(/["'\p{Pe}\p{Pf}]+$/u, ''))) splitSentence();
+  }
+  splitSentence();
+  return lines;
+}
 function color(v, name) {
   if (typeof v !== 'string' || !/^#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i.test(v)) fail(`${name} must be a hex color`);
   return v;
@@ -254,4 +288,4 @@ function normalize(spec) {
   };
   return { data, assets, events, cues };
 }
-module.exports = { normalize, normalizeTiming, object, list, number, image, COLORS };
+module.exports = { normalize, normalizeTiming, normalizeLines, object, list, number, image, COLORS };
