@@ -29,7 +29,7 @@ function bad(name, value, pattern) {
 
 test('lines help precedes runtime checks and declares only its two flags', t => {
   for (const alias of ['help', '--help']) {
-    assert.match(run([alias], '0.1.0'), /Scene Composer 0\.3\.0/);
+    assert.match(run([alias], '0.1.0'), /Scene Composer 0\.4\.0/);
     const r = call([alias]); assert.equal(r.status, 0); assert.equal(r.stderr, '');
     assert.match(r.stdout, /lines --spec <file.json> --output <new file.json>/);
     refused([alias, 'lines'], /unknown argument lines/);

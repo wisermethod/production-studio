@@ -1,6 +1,7 @@
 'use strict';
 const fs = require('node:fs');
 const path = require('node:path');
+const { createHash } = require('node:crypto');
 const { fail } = require('./rational.js');
 const TOOL = fs.realpathSync(path.join(__dirname, '..'));
 function canonical(value) {
@@ -46,4 +47,5 @@ function screen(value, name, output = false) {
 }
 function bytes(file) { try { return fs.readFileSync(file); } catch { fail('input cannot be read; check file permissions'); } }
 function utf8(buffer) { try { return new TextDecoder('utf-8', { fatal: true }).decode(buffer); } catch { fail('input must be UTF-8'); } }
-module.exports = { screen, bytes, utf8, TOOL };
+const sha = value => createHash('sha256').update(value).digest('hex');
+module.exports = { screen, bytes, utf8, sha, TOOL };

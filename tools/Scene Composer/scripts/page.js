@@ -98,9 +98,15 @@ function mount(D, stateAt, placeLabel) {
   window.addEventListener('video-render:seek', e => seek(e.detail.time));
   seek(0);
 }
+function fontFaces(fonts) {
+  return fonts.map(f => `@font-face { font-family: ${JSON.stringify(f.family)}; src: url("${f.file}"); font-weight: ${f.weight}; font-style: ${f.style}; font-display: block; }`).join('\n');
+}
+function captionRule(s) {
+  return s ? `.caption { z-index: 5; position: absolute; left: 50%; ${s.position}: ${s.margin}px; transform: translateX(-50%); width: max-content; max-width: ${s.max_width}px; font-family: ${JSON.stringify(s.font)}; font-size: ${s.size}px; font-weight: ${s.weight}; line-height: 1.3; color: ${s.color}; background: ${s.background === 'none' ? 'transparent' : s.background}; padding: ${s.padding}px; border-radius: ${s.radius}px; text-align: center; overflow-wrap: anywhere; opacity: 0; }` : '';
+}
 function page(D) {
   const family = D.fonts.length ? JSON.stringify(D.fonts[0].family) : 'sans-serif';
-  const faces = D.fonts.map(f => `@font-face { font-family: ${JSON.stringify(f.family)}; src: url("${f.file}"); font-weight: ${f.weight}; font-style: ${f.style}; font-display: block; }`).join('\n');
+  const faces = fontFaces(D.fonts);
   const c = D.colors, s = D.captions.style;
   const css = `${faces}
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -114,7 +120,7 @@ html, body, #root { width: ${D.width}px; height: ${D.height}px; overflow: hidden
 .label { z-index: 1; opacity: 0; position: absolute; overflow: hidden; width: max-content; max-width: ${D.still.width}px; background: ${c.label_background}; color: ${c.label_text}; font-size: 24px; line-height: 1.3; font-weight: ${D.fonts[0]?.weight ?? 400}; padding: 8px 16px; border-radius: 10px; overflow-wrap: anywhere; }
 #chip { z-index: 4; position: absolute; left: 2%; top: 3%; max-width: 96%; background: ${c.chip_background}; color: ${c.chip_text}; font-size: ${Math.min(D.width, D.height) * 0.04}px; line-height: 1.3; font-weight: ${D.fonts[0]?.weight ?? 400}; padding: 10px 22px; border-radius: 12px; opacity: 0; }
 .ripple { z-index: 2; position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; border: 4px solid ${c.click_ripple}; border-radius: 50%; opacity: 0; transform-origin: center; }
-${s ? `.caption { z-index: 5; position: absolute; left: 50%; ${s.position}: ${s.margin}px; transform: translateX(-50%); width: max-content; max-width: ${s.max_width}px; font-family: ${JSON.stringify(s.font)}; font-size: ${s.size}px; font-weight: ${s.weight}; line-height: 1.3; color: ${s.color}; background: ${s.background === 'none' ? 'transparent' : s.background}; padding: ${s.padding}px; border-radius: ${s.radius}px; text-align: center; overflow-wrap: anywhere; opacity: 0; }` : ''}
+${captionRule(s)}
 `;
   const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Walkthrough scene</title><link rel="stylesheet" href="style.css"></head>
@@ -125,4 +131,34 @@ ${s ? `.caption { z-index: 5; position: absolute; left: 50%; ${s.position}: ${s.
     'project/scene.js': `'use strict';\nconst SCENE = ${json(D).trimEnd()};\n(${mount.toString()})(SCENE, ${stateAt.toString()}, ${placeLabel.toString()});\n`
   };
 }
-module.exports = { page, stateAt, placeLabel };
+function mountLayer(D, stateAt) {
+  const root = document.getElementById('root');
+  const captions = D.captions.cues.map(c => {
+    const e = document.createElement('div'); e.className = 'caption'; e.textContent = c.text;
+    root.appendChild(e); return e;
+  });
+  function seek(time) {
+    const f = Math.max(0, Math.min(D.frames, Math.round(time * D.fps)));
+    const s = stateAt(D, f);
+    captions.forEach((e, i) => { e.style.opacity = String(s.captions[i]); });
+  }
+  window.addEventListener('video-render:seek', e => seek(e.detail.time));
+  seek(0);
+}
+function layerPage(D) {
+  const faces = fontFaces(D.fonts);
+  return {
+    'project/index.html': `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Caption layer</title><link rel="stylesheet" href="style.css"></head>
+<body><div id="root" data-video-root></div><script src="scene.js"></script></body></html>
+`,
+    'project/style.css': `${faces}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { width: ${D.width}px; height: ${D.height}px; overflow: hidden; }
+#root { position: relative; }
+${captionRule(D.captions.style)}
+`,
+    'project/scene.js': `'use strict';\nconst SCENE = ${json(D).trimEnd()};\n(${mountLayer.toString()})(SCENE, ${stateAt.toString()});\n`
+  };
+}
+module.exports = { page, layerPage, stateAt, placeLabel };

@@ -1,13 +1,11 @@
 'use strict';
 const fs = require('node:fs');
 const path = require('node:path');
-const { createHash } = require('node:crypto');
-const { screen, bytes, utf8 } = require('./paths.js');
+const { screen, bytes, utf8, sha } = require('./paths.js');
 const { parse, json, fail, Q } = require('./rational.js');
-const { normalize, normalizeTiming, normalizeLines, object, list, number } = require('./spec.js');
-const { page } = require('./page.js');
+const { normalize, normalizeTiming, normalizeLines, normalizeLayer, object, list, number } = require('./spec.js');
+const { page, layerPage } = require('./page.js');
 const srt = require('./srt.js');
-const sha = value => createHash('sha256').update(value).digest('hex');
 const fileHashes = files => files.map(f => ({ path: f.path, sha256: sha(f.bytes) })).sort((a,b) => a.path < b.path ? -1 : 1);
 function compose(input, output) {
   const source = screen(input, '--spec'), dest = screen(output, '--output', true);
@@ -28,6 +26,17 @@ function timing(input, output) {
   files.push({ path: 'timing.json', bytes: Buffer.from(json(record)) });
   writeDirectory(dest, files, 'timing');
   return { ...record, timing_sha256: sha(files.at(-1).bytes) };
+}
+function layer(input, output) {
+  const source = screen(input, '--spec'), dest = screen(output, '--output', true);
+  const raw = bytes(source), { data, assets, timing_sha256 } = normalizeLayer(parse(utf8(raw)));
+  const files = Object.entries(layerPage(data)).map(([file, content]) => ({ path: file, bytes: Buffer.from(content) }));
+  files.push(...assets);
+  const record = { spec_sha256: sha(raw), timing_sha256, width: data.width, height: data.height,
+    fps: data.fps, frames: data.frames, duration: data.duration, cues: data.captions.cues, files: fileHashes(files) };
+  files.push({ path: 'layer.json', bytes: Buffer.from(json(record)) });
+  writeDirectory(dest, files, 'layer', true);
+  return { ...record, layer_sha256: sha(files.at(-1).bytes) };
 }
 function lines(input, output) {
   const source = screen(input, '--spec'), dest = screen(output, '--output', true);
@@ -80,4 +89,4 @@ function writeFile(dest, content, command) {
     fail(`${command} could not write new output (${error.code || 'write failure'}); check permissions and disk space`);
   }
 }
-module.exports = { compose, timing, lines, captions };
+module.exports = { compose, timing, lines, captions, layer };

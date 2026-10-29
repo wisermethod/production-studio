@@ -25,7 +25,7 @@ function bad(name, change, pattern) {
 }
 
 test('timing is in help before runtime checks, with the closed command flags', t => {
-  assert.match(run(['help'], '0.1.0'), /Scene Composer 0\.3\.0/);
+  assert.match(run(['help'], '0.1.0'), /Scene Composer 0\.4\.0/);
   assert.match(run(['--help'], '0.1.0'), /timing --spec <file.json> --output <new dir>/);
   assert.throws(() => run(['timing'], '21.9.0'), /timing refuses Node 21.*requires Node >=22/);
   for (const alias of ['help', '--help']) {

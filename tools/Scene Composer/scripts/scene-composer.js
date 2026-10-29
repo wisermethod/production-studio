@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 'use strict';
 // Keep the launcher in old JavaScript syntax: help precedes the runtime check.
-var USAGE = 'Scene Composer 0.3.0\n' +
+var USAGE = 'Scene Composer 0.4.0\n' +
   'node scripts/scene-composer.js help\n' +
   'node scripts/scene-composer.js --help\n' +
   'node scripts/scene-composer.js compose --spec <file.json> --output <new dir>\n' +
   'node scripts/scene-composer.js timing --spec <file.json> --output <new dir>\n' +
+  'node scripts/scene-composer.js layer --spec <file.json> --output <new dir>\n' +
   'node scripts/scene-composer.js lines --spec <file.json> --output <new file.json>\n' +
   'node scripts/scene-composer.js captions --list <file.json> --output <new file.srt>\n' +
   'All paths absolute; each required flag once, with a separate value.\n' +
@@ -17,7 +18,7 @@ function run(argv, version) {
     if (argv.length !== 1) throw new Error('unknown argument ' + argv[1] + '.' + usage);
     return USAGE;
   }
-  if (command !== 'compose' && command !== 'timing' && command !== 'lines' && command !== 'captions') {
+  if (command !== 'compose' && command !== 'timing' && command !== 'lines' && command !== 'captions' && command !== 'layer') {
     throw new Error((command ? 'unknown command ' + command : 'missing command') + '.' + usage);
   }
   if (Number((version || process.versions.node).split('.')[0]) < 22) {

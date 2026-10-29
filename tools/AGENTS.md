@@ -20,6 +20,7 @@ Timeline installs its 35 exact wheel pins, about 95 MB per interpreter, from `py
 | Scene caption track, captions.srt | The same output directory | Scene Composer |
 | Hash manifest and resolved cues, compose.json | The same output directory | Scene Composer |
 | Caption track captions.srt and timing manifest timing.json | New caller-named `timing --output` directory | Scene Composer |
+| Transparent caption project, declared font copies and layer.json | New caller-named `layer --output` directory | Scene Composer |
 | Narration-derived caption lines and specification hash | New caller-named `lines --output` JSON file | Scene Composer |
 | Joined caption track | New caller-named `--output` SRT file | Scene Composer |
 | Output directory with cut.mp4, cut.otio, kinocut-receipt.json and record.json | New caller-named `--output` directory | Timeline |
@@ -35,7 +36,7 @@ Timeline installs its 35 exact wheel pins, about 95 MB per interpreter, from `py
 | Tool | Description |
 |------|-------------|
 | `Narration Takes/TOOL.md` | Stage narration sources, file and validate take evidence, and update an eligible scene current pointer against its expected prior registry |
-| `Scene Composer/TOOL.md` | Composes one still walkthrough scene into a seek-driven HTML project, makes a scene's caption lines from its narration text, writes a scene's caption track and timing from its narration alone, and joins scene caption tracks |
+| `Scene Composer/TOOL.md` | Composes one still walkthrough scene into a seek-driven HTML project, writes a scene's captions alone as a transparent layer, makes a scene's caption lines from its narration text, writes a scene's caption track and timing from its narration alone, and joins scene caption tracks |
 | `Timeline/TOOL.md` | Cuts silent recordings to exact planned frames and writes a BT.709 video, an OpenTimelineIO timeline and processing records |
 
 <!-- /generated:index -->

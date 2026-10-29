@@ -2,8 +2,8 @@
 name: Scene Composer
 type: tool
 category: media
-description: Composes one still walkthrough scene into a seek-driven HTML project, makes a scene's caption lines from its narration text, writes a scene's caption track and timing from its narration alone, and joins scene caption tracks
-version: 0.3.0
+description: Composes one still walkthrough scene into a seek-driven HTML project, writes a scene's captions alone as a transparent layer, makes a scene's caption lines from its narration text, writes a scene's caption track and timing from its narration alone, and joins scene caption tracks
+version: 0.4.0
 gaps:
   - Composing a scene from more than one still
   - Choosing the side of its rectangle a callout's label sits on
@@ -15,7 +15,7 @@ gaps:
 
 Does not capture a product, narrate, render video, join pictures or mix sound. Capture belongs to `wiser/tools/Screen Capture/TOOL.md`, rendering to `wiser/tools/video-render/TOOL.md`, and editing and sound to `wiser/tools/video-edit/TOOL.md`. Composing a scene from more than one still, and choosing the side of its rectangle a callout's label sits on, are missing in this version.
 
-Use it to turn one scene's still, aligned take record and word cues into a local HTML project and a caption track. Use `lines` to make a scene's caption lines from its narration, for a caller to pass to `compose` or `timing`. Use `timing` for a scene another tool draws: it writes captions and timing from narration alone. Optional drawn captions in `compose` have their own supplied style; an SRT is written in both caption modes. The tool reaches no account, reads no credential, makes no network call and installs nothing.
+Use it to turn one scene's still, aligned take record and word cues into a local HTML project and a caption track. Use `lines` to make a scene's caption lines from its narration, for a caller to pass to `compose` or `timing`. Use `layer` for a scene whose captions are drawn over a picture this tool does not compose, such as a recording. Use `timing` for a scene another tool draws: it writes captions and timing from narration alone. Optional drawn captions in `compose` have their own supplied style; an SRT is written in both caption modes. The tool reaches no account, reads no credential, makes no network call and installs nothing.
 
 Classifier seam: none.
 
@@ -37,6 +37,7 @@ Run from this tool's directory:
 node scripts/scene-composer.js help
 node scripts/scene-composer.js compose --spec /path/to/work/scene.json --output /path/to/work/scene
 node scripts/scene-composer.js timing --spec /path/to/work/timing.json --output /path/to/work/scene-timing
+node scripts/scene-composer.js layer --spec /path/to/work/layer.json --output /path/to/work/scene-layer
 node scripts/scene-composer.js lines --spec /path/to/work/narration.json --output /path/to/work/lines.json
 node scripts/scene-composer.js captions --list /path/to/work/scenes.json --output /path/to/work/video.srt
 ```
@@ -55,7 +56,7 @@ Pass the written `project/` directory, frame width and height, and `compose.json
 
 ## Dependencies
 
-Node 22 or later, proved by `node --version`, for all four work commands. `help` and its top-level `--help` alias answer before the version check, using an old-syntax launcher that loads no implementation module. Built-in modules only, no package dependencies, nothing to install. There is no configuration and no `--env` or `--install` option.
+Node 22 or later, proved by `node --version`, for all five work commands. `help` and its top-level `--help` alias answer before the version check, using an old-syntax launcher that loads no implementation module. Built-in modules only, no package dependencies, nothing to install. There is no configuration and no `--env` or `--install` option.
 
 ## Commands
 
@@ -67,6 +68,7 @@ Node 22 or later, proved by `node --version`, for all four work commands. `help`
 | `--help` | Top-level help alias; write nothing |
 | `compose` | Validate one scene, then write one new output directory |
 | `timing` | Validate narration captions and marks without a picture, then write one new output directory |
+| `layer` | Write one scene's captions alone as a transparent HTML layer project |
 | `lines` | Make caption lines from one scene's narration and write one new JSON file |
 | `captions` | Validate and join scene SRTs, then write one new SRT |
 
@@ -74,9 +76,9 @@ Help takes no other arguments. Every other command is refused by name. Work comm
 
 | Flag | Command | Type, default and meaning |
 |------|---------|---------------------------|
-| `--spec <file.json>` | compose, timing, lines | Required absolute path to the command's specification |
+| `--spec <file.json>` | compose, timing, layer, lines | Required absolute path to the command's specification |
 | `--list <file.json>` | captions | Required absolute path to the caption list |
-| `--output <path>` | compose, timing, lines, captions | Required absolute new directory for compose and timing; required absolute new JSON file for lines or SRT file for captions |
+| `--output <path>` | compose, timing, layer, lines, captions | Required absolute new directory for compose, timing and layer; required absolute new JSON file for lines or SRT file for captions |
 
 ### Caption list
 
@@ -193,6 +195,23 @@ Every drawn caption style key is required and has no default:
 
 `marks` is a list, default `[]`, of objects with exactly two required keys: `name`, a nonempty single-line string without controls, unique within the list; and `at`, a time object as defined above. Marks may be in any time order and may share a time; output keeps specification order. A missing word or occurrence, a time past the scene end, or captions out of order or on the same frame are refused by the shared resolution. A mark with no frame drawn past its time inside the scene is refused by name, as Arithmetic and motion defines.
 
+### Layer specification
+
+An object with exactly four required keys:
+
+| Key | Contents |
+|-----|----------|
+| `frame` | `width`, `height` and `fps`, with compose's types and bounds |
+| `timing` | Exactly `path`, an absolute path to the timing.json written by `timing`, and `sha256`, its recorded lowercase SHA-256 |
+| `fonts` | The same font declarations, types, defaults, signature checks and refusals as compose |
+| `style` | Compose's ten drawn-caption style keys above, every one required, with the same types, bounds and refusals |
+
+The timing file is read as strict UTF-8 JSON, with duplicate keys refused everywhere and its bytes checked against `timing.sha256`. Its keys must be exactly `spec_sha256`, `fps`, `frames`, `duration`, `lead`, `tail`, `marks`, `cues` and `files`. Its `fps` must equal `frame.fps`; its `frames` must be a positive safe integer. Layer duration is `frames / fps`. Frames are used as given, never resolved again from seconds, narration or an SRT.
+
+Each cue has exactly `text`, `start_frame`, `end_frame`, `start` and `end`. Its text follows caption lines: a nonempty single-line string without controls. Frames are safe integers with `0 <= start_frame < end_frame <= frames`. Each cue starts strictly after the preceding cue starts, and no cue ends after the next starts; adjoining cues and gaps are valid. The recorded `start` and `end` seconds are retained, even when they differ from the frame times. Unknown keys and missing fields are refused at each specification level and on timing cues.
+
+`style.font` must name a declared family even when there are no cues. A timing with no cues makes an empty transparent layer; its declared fonts are still copied.
+
 ## Arithmetic and motion
 
 Let `L` be lead, `T = sample_count / sample_rate` for a take, or the supplied duration without one. A word's scene time is `L + word.start`. Scene frames are `ceil((L + T + tail) * fps)` and scene duration is `frames / fps`. An event at exact rational time `t` resolves to the first frame `n` with `n / fps >= t`, namely `ceil(t * fps)`. All additions, comparisons, products and ceilings in that resolution use BigInt fractions, not binary floating-point floor or ceil: 4.1 seconds at 30 fps is frame 123, while 4.10000000000000001 is frame 124. JSON report seconds are numeric approximations of the exact times; frame indices are authoritative.
@@ -232,9 +251,19 @@ Work success is one JSON object on stdout and exit 0. Help prints usage. Failure
 
 `timing` writes exactly these two files. Its marks hold `name`, `seconds`, `frame` and `frame_after` in specification order; `cues` holds the same entries as `compose.json`'s `captions`. The `files` list holds the caption file's relative path and SHA-256, excluding the manifest itself. JSON formatting and destination independence are as for `compose.json`. Stdout holds the same record fields plus `timing_sha256`, the manifest's SHA-256. Given the same frame, narration span, lead, tail and caption lines, timing and compose write byte-identical SRTs and the same frames, duration and cues.
 
+| layer file | Contents |
+|------------|----------|
+| `project/index.html`, `project/style.css`, `project/scene.js` | Caption-only transparent page, linked local styles and seek script |
+| `project/font-001.<ext>` onward | Declared font bytes under compose's fixed numbered names |
+| `layer.json` | Exactly `spec_sha256`, `timing_sha256`, `width`, `height`, `fps`, `frames`, `duration`, `cues` and `files` |
+
+`layer` writes no caption track; `timing` already wrote it. Its cues equal the timing file's cues, and `files` lists every payload path and SHA-256 sorted by relative path, excluding the manifest. Stdout holds the same fields plus `layer_sha256`, the SHA-256 of layer.json. JSON formatting is as for compose.json: recursively sorted keys, two-space indentation, LF and a final LF. Identical specification and source bytes give byte-identical directories at two destinations.
+
 `lines` writes only the new JSON file named by `--output`. It has exactly `lines`, the ordered list of `{ "text", "at": { "word", "occurrence" } }` objects, and `spec_sha256`, the SHA-256 of the exact specification bytes. Keys are sorted recursively, indentation is two spaces, line endings are LF with a final LF, and non-ASCII characters are written as themselves. The file contains no destination, run time or machine identity; identical specification bytes at two destinations produce byte-identical files. Stdout holds the same two fields plus `lines_sha256`, the written file's SHA-256.
 
 `captions` stdout holds `cues` and the written SRT's `sha256`. It writes only the requested SRT.
+
+The layer draws only captions on a transparent page, by the same caption CSS and `stateAt` code as compose's drawn captions. It draws no still, camera, cursor, chip, callout, ripple, background or shadow. Each caption appears on its `start_frame` with positive opacity rising over `ceil(0.12 * fps)` frames and disappears on its exclusive `end_frame`. Pass its project to `video-render`'s `sequence` for RGBA PNG frames to lay over the other picture; layer itself renders no frames.
 
 Every seek sets every visual state from `detail.time` alone, including seeks in reverse order and the first seek in a fresh browser. Nothing is marked `will-change`: every element but the chip and drawn captions sits inside the camera, whose scale changes, where `wiser/tools/video-render/TOOL.md` The project forbids it, and, measured on one scene, a page with every hint removed drew the same frames on six one-worker renders, where the hints let two one-worker renders differ. Rendered on `video-render` 0.2.0 or later at one worker count, its default of one, on one machine, GPU mode and capture mode, a scene draws the same frames on every render, as that tool's own page promises; a different worker count is a different cache entry and is not promised the same frames, since a zoom and a fade over it can differ by how the frames are split. There are no timers, animation frames, CSS animations or transitions, retained playback position, external libraries or external-origin loads. The project follows `wiser/tools/video-render/TOOL.md` The project.
 
@@ -242,7 +271,7 @@ Every seek sets every visual state from `detail.time` alone, including seeks in 
 
 Follows `wiser/standards/script-contract.md`; the running contract is `wiser/tools/RUNNING.md`. Importing the launcher runs no command. The implementation imports built-ins and files within this tool only. No package or credential is read and no install runs. The complete write inventory is `tools/AGENTS.md`.
 
-Tests run from this directory with `node --test tests/*.test.js`. They create and remove their own directories under the OS temporary directory; set `TMPDIR` to a caller-owned scratch directory to contain them. `SCENE_COMPOSER_VIDEO_RENDER` names an absolute installed `video-render.js` entry for optional rendering tests. Without it those tests skip visibly; with it they render the default twice and once with `--workers 1` and compare decoded `frames.sha256`, render an intermediate MP4 and request selected frames. No test installs anything. `SCENE_COMPOSER_TEST_ASSETS`, optional, names a scratch directory holding `still.png`, `font.woff2` and `take.json` for the supplied-asset test; its font also enables drawn text in the renderer test. These variables configure tests only, not the tool.
+Tests run from this directory with `node --test tests/*.test.js`. They create and remove their own directories under the OS temporary directory; set `TMPDIR` to a caller-owned scratch directory to contain them. `SCENE_COMPOSER_VIDEO_RENDER` names an absolute installed `video-render.js` entry for optional rendering tests. Without it those tests skip visibly; with it they render the default twice and once with `--workers 1` and compare decoded `frames.sha256`, render an intermediate MP4 and request selected frames. The layer renderer test decodes the PNG alpha channel, checks that every pixel before the first cue is transparent, and confines visible alpha to the caption box. No test installs anything. `SCENE_COMPOSER_TEST_ASSETS`, optional, names a scratch directory holding `still.png`, `font.woff2` and `take.json` for the supplied-asset test; its font also enables drawn text in the renderer test. These variables configure tests only, not the tool.
 
 ## Troubleshooting
 
@@ -260,6 +289,9 @@ Tests run from this directory with `node --test tests/*.test.js`. They create an
 | `unknown key spec.still` or another drawing key, `unknown key captions.mode`, `unknown key captions.style` | Drawing fields supplied to timing | Use only Timing specification keys |
 | `duplicate mark name`, `mark.name must be a nonempty single-line string without controls` | Invalid mark names | Supply a distinct nonempty single-line name for each mark |
 | `mark ... has no frame past its time inside the scene` | Mark's frame_after is outside the scene | Move the named mark earlier or extend the narration span or tail |
+| `timing file sha256 must match`, `timing.sha256 must be` | Timing identity is missing, malformed or changed | Record the SHA-256 of the intended timing.json and supply it in the layer specification |
+| `timing.fps must equal frame.fps`, `timing.frames must be` | Layer rate differs or timing frame count is invalid | Use the timing file's rate and positive integer frame count |
+| `timing.cues` with `start_frame`, `end_frame` or `text` | Cue schema, frame order, overlap, interval or text is invalid | Use the exact cue fields and caption text rules, with ordered nonoverlapping frames within the timing span |
 | `outside the still` | Invalid point or rectangle | Use stored image-pixel coordinates within the header dimensions |
 | `caption has no frames`, `SRT cue is empty` | A caption interval cannot be represented | Give each cue a visible interval: a later start than the line before it, and an end after its start |
 | `drawn text requires at least one font`, `font must be`, `style.font` | Missing font, unsupported header or family | Supply a local supported font and declared family |
@@ -272,6 +304,7 @@ Tests run from this directory with `node --test tests/*.test.js`. They create an
 - Help works before runtime checks, and every command and flag outside the declared set is refused by name.
 - A compose run writes the local project, frame-aligned SRT and complete payload hash record at a new destination; every refusal writes nothing.
 - A timing run writes only captions.srt and timing.json, using compose's caption and duration arithmetic and reporting each mark's event frame and first frame drawn past it; every refusal writes nothing.
+- A layer run writes only a transparent caption project, declared fonts and layer.json, using timing's frames and compose's drawing code; identical inputs give identical bytes and every refusal writes nothing.
 - A lines run writes narration-derived caption lines with exact first-token occurrences and specification and output hashes; every refusal writes nothing, and identical specification bytes produce identical files at different destinations.
 - Frame resolution, take length and duration follow exact rational arithmetic, including decimal frame boundaries.
 - A scene draws the same frame from any seek order, and two compositions from identical inputs are byte-identical.

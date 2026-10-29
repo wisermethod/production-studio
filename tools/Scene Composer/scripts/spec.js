@@ -1,6 +1,6 @@
 'use strict';
 const { Q, rational: q, frame, fail } = require('./rational.js');
-const { screen, bytes, utf8 } = require('./paths.js');
+const { screen, bytes, utf8, sha } = require('./paths.js');
 const { parse } = require('./rational.js');
 const fallback = (value, other) => value === undefined ? other : value;
 const COLORS = {
@@ -104,6 +104,28 @@ function fontFile(buffer) {
   if (!ext || buffer.length < 12) fail('font must be a WOFF2, WOFF, TrueType or OpenType file');
   return ext;
 }
+function sceneFonts(value) {
+  const assets = [], fonts = [];
+  for (const [i, f] of list(fallback(value, []), 'fonts').entries()) {
+    object(f, 'font', ['family','path','weight','style'], ['family','path']);
+    const family = text(f.family, 'font.family'), weight = integer(fallback(f.weight, q(400)), 'font.weight', 1), style = fallback(f.style, 'normal');
+    if (weight > 1000 || !['normal','italic','oblique'].includes(style)) fail('font weight must be 1 to 1000 and style normal, italic or oblique');
+    if (fonts.some(x => x.family === family && x.weight === weight && x.style === style)) fail('duplicate font family, weight and style');
+    const content = bytes(screen(f.path, 'font.path')), extension = fontFile(content), file = `font-${String(i + 1).padStart(3, '0')}.${extension}`;
+    assets.push({ path: `project/${file}`, bytes: content }); fonts.push({ family, weight, style, file });
+  }
+  return { assets, fonts };
+}
+function captionStyle(value, fonts, fw, fh, name = 'captions.style') {
+  const s = object(value, name, ['font','size','weight','color','background','padding','radius','position','margin','max_width']);
+  if (!fonts.some(f => f.family === s.font)) fail(`${name}.font must name a family in fonts`);
+  const style = { font: s.font, color: color(s.color, `${name}.color`), background: s.background === 'none' ? 'none' : color(s.background, `${name}.background`), position: s.position };
+  if (!['top','bottom'].includes(s.position)) fail(`${name}.position must be top or bottom`);
+  for (const k of ['size','padding','radius','margin','max_width']) style[k] = Number(number(s[k], `${name}.${k}`, ['size','max_width'].includes(k)));
+  style.weight = integer(s.weight, `${name}.weight`, 1);
+  if (style.weight > 1000 || style.max_width > fw || style.margin * 2 >= fh) fail(`${name === 'captions.style' ? 'captions style' : name} exceeds frame or weight bounds`);
+  return style;
+}
 function sceneFrame(value) {
   object(value, 'frame', ['width','height','fps']);
   const fw = integer(value.width, 'frame.width', 2), fh = integer(value.height, 'frame.height', 2), fps = integer(value.fps, 'frame.fps', 1);
@@ -194,6 +216,35 @@ function normalizeTiming(spec) {
   });
   return { fps, frames: clock.frames, duration: clock.frames / fps, lead: Number(clock.lead), tail: Number(clock.tail), marks, cues };
 }
+function normalizeLayer(spec) {
+  object(spec, 'spec', ['frame','timing','fonts','style']);
+  const { fw, fh, fps } = sceneFrame(spec.frame);
+  object(spec.timing, 'timing', ['path','sha256']);
+  if (typeof spec.timing.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(spec.timing.sha256)) fail('timing.sha256 must be a lowercase SHA-256');
+  const raw = bytes(screen(spec.timing.path, 'timing.path')), timing_sha256 = sha(raw);
+  if (timing_sha256 !== spec.timing.sha256) fail('timing file sha256 must match timing.sha256');
+  const timing = object(parse(utf8(raw)), 'timing', ['spec_sha256','fps','frames','duration','lead','tail','marks','cues','files']);
+  if (integer(timing.fps, 'timing.fps', 1) !== fps) fail('timing.fps must equal frame.fps');
+  const frames = integer(timing.frames, 'timing.frames', 1);
+  const cues = list(timing.cues, 'timing.cues').map((cue, i) => {
+    const name = `timing.cues[${i}]`;
+    object(cue, name, ['text','start_frame','end_frame','start','end']);
+    const content = text(cue.text, `${name}.text`), start = integer(cue.start_frame, `${name}.start_frame`), end = integer(cue.end_frame, `${name}.end_frame`);
+    if (end <= start || end > frames) fail(`${name}.end_frame must be after start_frame and at most timing.frames`);
+    // Seconds are retained as recorded. Only the integer frames determine visibility.
+    return { text: content, start_frame: start, end_frame: end, start: cue.start, end: cue.end };
+  });
+  for (let i = 1; i < cues.length; i++) {
+    if (cues[i].start_frame <= cues[i-1].start_frame) fail(`timing.cues[${i}].start_frame must be strictly increasing`);
+    if (cues[i].start_frame < cues[i-1].end_frame) fail(`timing.cues[${i}].start_frame must not overlap the preceding end_frame`);
+  }
+  const { fonts, assets } = sceneFonts(spec.fonts), style = captionStyle(spec.style, fonts, fw, fh, 'style');
+  // Supply stateAt's full data contract without mounting any of its scene elements.
+  const data = { width: fw, height: fh, fps, frames, duration: frames / fps, fonts,
+    still: { width: fw, height: fh }, camera: [], cursor: null, chip: null, callouts: [], clicks: [],
+    fades: { caption: frame('0.12', fps) }, captions: { mode: 'drawn', style, cues } };
+  return { data, assets, timing_sha256 };
+}
 function normalize(spec) {
   object(spec, 'spec', ['frame','still','take','duration','lead','tail','fonts','colors','chip','cursor','clicks','camera','callouts','captions'], ['frame','still']);
   const { fw, fh, fps } = sceneFrame(spec.frame);
@@ -227,14 +278,7 @@ function normalize(spec) {
     for (const k of Object.keys(spec.colors)) colors[k] = color(spec.colors[k], `colors.${k}`);
   }
   const assets = [{ path: `project/still.${size.extension}`, bytes: still }], fonts = [];
-  for (const [i, f] of list(fallback(spec.fonts, []), 'fonts').entries()) {
-    object(f, 'font', ['family','path','weight','style'], ['family','path']);
-    const family = text(f.family, 'font.family'), weight = integer(fallback(f.weight, q(400)), 'font.weight', 1), style = fallback(f.style, 'normal');
-    if (weight > 1000 || !['normal','italic','oblique'].includes(style)) fail('font weight must be 1 to 1000 and style normal, italic or oblique');
-    if (fonts.some(x => x.family === family && x.weight === weight && x.style === style)) fail('duplicate font family, weight and style');
-    const content = bytes(screen(f.path, 'font.path')), extension = fontFile(content), file = `font-${String(i + 1).padStart(3, '0')}.${extension}`;
-    assets.push({ path: `project/${file}`, bytes: content }); fonts.push({ family, weight, style, file });
-  }
+  const declared = sceneFonts(spec.fonts); assets.push(...declared.assets); fonts.push(...declared.fonts);
   let cursor = null;
   if (spec.cursor !== undefined) {
     object(spec.cursor, 'cursor', ['start','moves']);
@@ -274,13 +318,7 @@ function normalize(spec) {
   if (mode === 'none' && captions.style !== undefined) fail('captions.style is refused for none');
   let style = null;
   if (mode === 'drawn') {
-    const s = object(captions.style, 'captions.style', ['font','size','weight','color','background','padding','radius','position','margin','max_width']);
-    if (!fonts.some(f => f.family === s.font)) fail('captions.style.font must name a family in fonts');
-    style = { font: s.font, color: color(s.color, 'captions.style.color'), background: s.background === 'none' ? 'none' : color(s.background, 'captions.style.background'), position: s.position };
-    if (!['top','bottom'].includes(s.position)) fail('captions.style.position must be top or bottom');
-    for (const k of ['size','padding','radius','margin','max_width']) style[k] = Number(number(s[k], `captions.style.${k}`, ['size','max_width'].includes(k)));
-    style.weight = integer(s.weight, 'captions.style.weight', 1);
-    if (style.weight > 1000 || style.max_width > fw || style.margin * 2 >= fh) fail('captions style exceeds frame or weight bounds');
+    style = captionStyle(captions.style, fonts, fw, fh);
   }
   const cues = captionCues(captions, clock, (v, name) => event(v, name, 'caption'));
   if ((chip || callouts.length || (mode === 'drawn' && cues.length)) && !fonts.length) fail('drawn text requires at least one font');
@@ -294,4 +332,4 @@ function normalize(spec) {
   };
   return { data, assets, events, cues };
 }
-module.exports = { normalize, normalizeTiming, normalizeLines, object, list, number, image, COLORS };
+module.exports = { normalize, normalizeTiming, normalizeLines, normalizeLayer, object, list, number, image, COLORS };
