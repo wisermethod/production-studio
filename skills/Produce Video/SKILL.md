@@ -48,7 +48,7 @@ This skill writes no prose and requests no memory binding. Every skill it runs r
 - Every other scene with at least one cue, all citing one and the same still: `walkthrough`, of that still.
 - A scene with no cue: ask the member its kind.
 - An `avatar` scene: the member's HeyGen avatar speaking that scene's narration on screen, in place of a still. It needs a HeyGen account and is offered, never pressed: where the plan has a scene with no cue, name it once among the kinds the member may answer, saying it needs a HeyGen account, and plan it only on their word. A member without one is never asked for an avatar and nothing waits on one.
-- An avatar window: on a walkthrough or explainer, the member's avatar in a small window at the bottom right, speaking a stretch of that scene's narration, from one `At`-style word and occurrence to another, both on their word. It belongs to that scene and is no kind of its own.
+- An avatar window: on a walkthrough or explainer, the member's avatar in a small window at the bottom right, speaking a stretch of that scene's narration, from one `At`-style word and occurrence to another, both on their word. It belongs to that scene and is no kind of its own. Offer it sparingly, as an occasional accent, never by default on every scene; its stretch of narration runs at least 8 seconds.
 
 Never guess a kind; a scene the member is asked about waits for the answer.
 
