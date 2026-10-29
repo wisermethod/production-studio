@@ -12,9 +12,9 @@ const { run } = require('../scripts/scene-composer.js');
 const { stateAt } = require('../scripts/page.js');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const style = () => ({ font: 'Local', size: 18, weight: 400, color: '#fff', background: '#111e', padding: 4, radius: 3, position: 'bottom', margin: 8, max_width: 300 });
-function setup(t) {
+function setup(t, fps) {
   const f = fixture(t);
-  const timing = { frame: f.spec.frame, duration: 1, lead: 0, tail: 0, captions: { lines: [{ text: 'Open', at: { seconds: 0.1 } }, { text: 'Save.', at: { seconds: 0.6 } }] } };
+  const timing = { frame: fps ? { ...f.spec.frame, fps } : f.spec.frame, duration: 1, lead: 0, tail: 0, captions: { lines: [{ text: 'Open', at: { seconds: 0.1 } }, { text: 'Save.', at: { seconds: 0.6 } }] } };
   const out = path.join(f.dir, 'timed');
   ok(['timing', '--spec', f.save(timing, 'timing-spec.json'), '--output', out]);
   f.timingPath = path.join(out, 'timing.json');
@@ -84,7 +84,7 @@ bad('timing cues type', f => { f.timing.cues = {}; f.retime(); }, /timing.cues.*
 for (const key of ['text', 'start_frame', 'end_frame', 'start', 'end']) bad(`cue missing ${key}`, f => { delete f.timing.cues[0][key]; f.retime(); }, new RegExp('missing field timing.cues\\[0\\].' + key));
 bad('cue unknown key', f => { f.timing.cues[0].unexpected = 1; f.retime(); }, /unknown key timing.cues\[0\].unexpected/);
 for (const [label, edit, pattern] of [
-  ['past frames', c => c.end_frame = 31, /end_frame/], ['no frames', c => c.end_frame = c.start_frame, /end_frame/],
+  ['past frames', c => c.end_frame = 31, /end_frame/], ['no frames', c => c.end_frame = c.start_frame, /end_frame/], ['reversed frames', c => c.end_frame = c.start_frame - 1, /end_frame/],
   ['fractional start', c => c.start_frame = 1.5, /start_frame.*integer/], ['negative start', c => c.start_frame = -1, /start_frame.*nonnegative/],
   ['fractional end', c => c.end_frame = 10.5, /end_frame.*integer/], ['negative end', c => c.end_frame = -1, /end_frame.*nonnegative/],
   ['empty text', c => c.text = '', /text.*single-line/], ['multiline text', c => c.text = 'One\nTwo', /text.*single-line/],
@@ -183,6 +183,27 @@ test('layer uses moved start_frame without resolving the unchanged start seconds
   assert.equal(r.cues[0].start, 0.1); assert.equal(r.cues[0].start_frame, 7);
   const page = dom(fs.readFileSync(path.join(f.output, 'project/scene.js'), 'utf8'));
   assert.deepEqual(page.seek(3), [0, 0]); assert.deepEqual(page.seek(7), [0.25, 0]);
+});
+test('layer duration is frames / fps, never the timing file duration', t => {
+  const f = setup(t); f.timing.duration = 9; f.retime(); const r = ok(args(f));
+  assert.equal(r.frames, 30); assert.equal(r.duration, 1);
+});
+test('layer allows a gap between cues and draws nothing inside it', t => {
+  const f = setup(t); f.timing.cues[1].start_frame = 22; f.retime(); const r = ok(args(f));
+  assert.equal(r.cues[1].start, f.timing.cues[1].start); assert.equal(r.cues[1].start_frame, 22);
+  const page = dom(fs.readFileSync(path.join(f.output, 'project/scene.js'), 'utf8'));
+  assert.deepEqual(page.seek(18), [0, 0]); assert.deepEqual(page.seek(21), [0, 0]); assert.deepEqual(page.seek(22), [0, 0.25]);
+});
+test('layer fades over ceil(0.12 * fps) frames as compose does: 24 fps', t => {
+  const f = setup(t, 24); f.spec.frame = { ...f.spec.frame, fps: 24 }; const r = ok(args(f));
+  const composed = { frame: f.spec.frame, still: { path: path.join(f.dir, 'still.png') }, duration: 1, lead: 0, tail: 0, fonts: f.spec.fonts,
+    captions: { mode: 'drawn', style: f.spec.style, lines: [{ text: 'Open', at: { seconds: 0.1 } }, { text: 'Save.', at: { seconds: 0.6 } }] } };
+  const out = path.join(f.dir, 'composed'); ok(['compose', '--spec', f.save(composed, 'compose-spec.json'), '--output', out]);
+  const scene = dir => JSON.parse(fs.readFileSync(path.join(dir, 'project/scene.js'), 'utf8').match(/const SCENE = ([\s\S]*?);\n\(/)[1]);
+  assert.equal(scene(f.output).fades.caption, 3); assert.equal(scene(f.output).fades.caption, scene(out).fades.caption);
+  const page = dom(fs.readFileSync(path.join(f.output, 'project/scene.js'), 'utf8')), s = r.cues[0].start_frame;
+  assert.deepEqual(page.seek(s - 1, 24), [0, 0]); assert.deepEqual(page.seek(s, 24), [1 / 3, 0]);
+  assert.deepEqual(page.seek(s + 1, 24), [2 / 3, 0]); assert.deepEqual(page.seek(s + 2, 24), [1, 0]);
 });
 test('layer rolls back handled writes and preserves competing output', t => {
   const f = setup(t), command = args(f), before = tree(f.dir), write = fs.writeFileSync, mkdir = fs.mkdirSync;
