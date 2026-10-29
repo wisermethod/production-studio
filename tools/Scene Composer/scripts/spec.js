@@ -33,7 +33,7 @@ function normalizeLines(spec) {
   object(spec, 'spec', ['narration']);
   if (typeof spec.narration !== 'string' || !spec.narration.length) fail('narration must be a nonempty string');
   // The controls a narration take's script refuses anywhere, tags included; tab, line feed and carriage return
-  // remain word separators. U+000B, U+000C and U+0085 would otherwise split words a take keeps whole.
+  // remain word separators. A take's script cannot hold U+000B, U+000C or U+0085, so none of them separates words here.
   const control = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u0085]/u;
   if (control.test(spec.narration)) {
     const word = spec.narration.split(/[\t\n\r\p{Zs}\u2028\u2029\uFEFF]+/u).find(w => control.test(w));
