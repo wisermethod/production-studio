@@ -20,7 +20,7 @@ function string(v, name) {
 }
 function scene(v) { if (typeof v !== 'string' || !/^[a-z0-9-]+$/.test(v)) fail('scene must use lowercase letters, digits and hyphens'); return v; }
 function cid(v) { if (typeof v !== 'string' || !UUID.test(v)) fail('cid must be a UUID'); return v; }
-function route(v) { if (!['elevenlabs', 'chatterbox'].includes(v)) fail('route must be elevenlabs or chatterbox'); return v; }
+function route(v) { if (!['elevenlabs', 'chatterbox', 'heygen'].includes(v)) fail('route must be elevenlabs, chatterbox or heygen'); return v; }
 function digest(v) { if (typeof v !== 'string' || !/^[a-f0-9]{64}$/.test(v)) fail('sha256 must be 64 lowercase hexadecimal characters'); }
 function fileIdentity(v) { object(v, 'file identity', ['bytes', 'sha256']); integer(v.bytes, 'bytes', 1); digest(v.sha256); }
 function matches(file, expected) { fileIdentity(expected); const got = I.identity(file); if (!equal(got, expected)) fail('file bytes or sha256 mismatch; retain the evidence and resolve the differing identity'); return got; }
@@ -60,6 +60,13 @@ function inputs(v, r) {
     if (!['eleven_v4','eleven_v4_turbo','eleven_v3','eleven_multilingual_v2'].includes(v.model_id)) fail('invalid model_id');
   } else if (r === 'chatterbox') {
     object(v, 'Chatterbox inputs', ['reference_sha256','settings']); digest(v.reference_sha256); chatterSettings(v.settings);
+  } else if (r === 'heygen') {
+    object(v, 'HeyGen inputs', ['voice_id','model','expressiveness_boost'], ['language']);
+    if (typeof v.voice_id !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(v.voice_id)) fail('invalid voice_id');
+    if (!['heygen-voice-1','heygen-voice-1-turbo','heygen-voice-1-turbo-free'].includes(v.model)) fail('invalid HeyGen model');
+    number(v.expressiveness_boost,'expressiveness_boost');
+    if (v.expressiveness_boost > 1) fail('expressiveness_boost must be between 0 and 1');
+    if (Object.hasOwn(v,'language') && (typeof v.language !== 'string' || v.language.length > 32 || !/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/.test(v.language))) fail('invalid HeyGen language tag');
   } else {
     object(v, 'legacy xAI inputs', ['voice_id','language','timings'], ['speed','sample_rate','bit_rate','text_normalization']);
     string(v.voice_id,'voice_id'); language(v.language);
@@ -74,7 +81,7 @@ function english(v) { return /^(?:en|eng)(?:-|$)/i.test(v); }
 function settings(v) {
   if (v && Object.hasOwn(v,'route')) {
     route(v.route);
-    object(v, 'settings', ['route','language', ...(v.route === 'elevenlabs' ? ['voice_id','model_id'] : ['reference_sha256','settings'])]);
+    object(v, 'settings', ['route','language', ...({elevenlabs:['voice_id','model_id'],chatterbox:['reference_sha256','settings'],heygen:['voice_id','model','expressiveness_boost']})[v.route]]);
     const { route:r, language:l, ...facts } = v; language(l); inputs(facts,r);
   } else {
     object(v, 'legacy settings', ['voice_id','language'], ['speed','sample_rate','bit_rate','text_normalization']);
@@ -88,6 +95,10 @@ function settingsMatch(v, record) {
   const {route:ignored, language:l, ...facts} = v;
   const takeFacts = {...record.inputs};
   if (r === 'xai') { delete takeFacts.timings; delete takeFacts.language; }
+  if (r === 'heygen') {
+    if (Object.hasOwn(takeFacts,'language') && l !== takeFacts.language) fail('settings language differs from HeyGen take');
+    delete takeFacts.language;
+  }
   if (!equal(facts,takeFacts)) fail('settings differ from the take inputs');
   if (r === 'xai' && l !== record.inputs.language) fail('settings language differs from legacy take');
   if (record.check?.result === 'unchecked' && l !== record.check.language) fail('unchecked language differs from settings');
@@ -151,7 +162,7 @@ function sourceClock(file) {
   if (/LAME[0-9]/.test(I.read(file).toString('latin1'))) return {...s,basis:'lame_no_header',removed:1105,stated:null};
   return {...s,basis:'unknown',removed:0,stated:null};
 }
-function recordSource(dir, record) { return path.join(dir,record.cid+(record.route === 'chatterbox' ? '.source.wav' : '.mp3')); }
+function recordSource(dir, record) { return path.join(dir,record.cid+(['chatterbox','heygen'].includes(record.route) ? '.source.wav' : '.mp3')); }
 function transcriptPath(dir, id, name, legacy = false, result = 'pass') {
   string(name,'transcript');
   const prefix = id + '-transcript-';
@@ -179,7 +190,7 @@ function validateData(production, resolved, r, providedSettings) {
   scene(r.scene); cid(r.cid); const rt = Object.hasOwn(r,'route') ? route(r.route) : 'xai';
   const dir = folder(production,r.scene);
   if (resolved !== path.join(dir,r.cid+'.json')) fail('record path does not match production, scene and cid');
-  if (r.action !== ({elevenlabs:'elevenlabs.speech.synthesize',chatterbox:'chatterbox.synthesize',xai:'xai.speech.synthesize'})[rt]) fail('action does not match route');
+  if (r.action !== ({elevenlabs:'elevenlabs.speech.synthesize',chatterbox:'chatterbox.synthesize',heygen:'heygen.speech.synthesize',xai:'xai.speech.synthesize'})[rt]) fail('action does not match route');
   inputs(r.inputs,rt); const tokens = scriptTokens(r.text); digest(r.text_sha256);
   if (I.hash(Buffer.from(r.text)) !== r.text_sha256) fail('original text sha256 mismatch');
   integer(r.characters,'characters',1); if (r.characters > 5000) fail('submitted text exceeds 5,000 code points');
@@ -189,12 +200,13 @@ function validateData(production, resolved, r, providedSettings) {
   if (I.regular(source) !== source || I.stat(source).isSymbolicLink()) fail('take source must be a regular file at its filed path');
   matches(source,r.file); const src = sourceClock(source);
   if (rt === 'chatterbox' && src.codec_name !== 'pcm_s24le') fail('Chatterbox source must retain its original 24-bit PCM WAV');
+  if (rt === 'heygen' && (src.codec_name !== 'pcm_s16le' || src.bits_per_sample !== 16 || src.channels !== 1 || src.rate !== 44100)) fail('HeyGen source must retain its original 16-bit PCM mono 44,100 Hz WAV');
   let length = Q.decimal(I.numberText(r,'duration')), usable = false;
   if (Object.hasOwn(r,'delay')) {
     object(r.delay,'delay',['samples_removed','sample_rate','basis','stated_skip_samples']);
     integer(r.delay.samples_removed,'samples_removed'); integer(r.delay.sample_rate,'sample_rate',1);
     if (r.delay.stated_skip_samples !== null) integer(r.delay.stated_skip_samples,'stated_skip_samples');
-    const unknown = r.delay.basis === 'unknown' && r.delay.samples_removed === 0 && r.delay.sample_rate === src.rate && r.delay.stated_skip_samples === null;
+    const unknown = rt !== 'heygen' && r.delay.basis === 'unknown' && r.delay.samples_removed === 0 && r.delay.sample_rate === src.rate && r.delay.stated_skip_samples === null;
     if (!unknown && !equal(r.delay,{samples_removed:src.removed,sample_rate:src.rate,basis:src.basis,stated_skip_samples:src.stated})) fail('delay differs from the source readback');
     if (!Object.hasOwn(r,'aligned_file')) fail('delay requires aligned_file, null for unknown or unfinished audio');
     if (r.delay.basis === 'unknown' && r.aligned_file !== null) fail('unknown delay cannot have aligned audio');
