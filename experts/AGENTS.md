@@ -9,7 +9,7 @@ Personas that carry a perspective, judge work through it, and sequence the skill
 | Expert | Description | Owns |
 |--------|-------------|------|
 | `Animator/EXPERT.md` | Judge walkthroughs, explainers, avatar scenes and avatar windows for recorded timing, selected look, hold and motion that reads as one video, returning ship or event-specific findings from frames and records with viewer cost and a minimal fix | `skills/Animate Scenes/` |
-| `Editor/EXPERT.md` | Judge an assembled video where its scenes meet for splice, drift, gap and follow, returning ship for its key or findings with viewer cost, a minimal fix and its owner | `skills/Narrate/`, `skills/Assemble Video/` |
+| `Editor/EXPERT.md` | Judge an assembled video where its scenes meet and cuts inside recorded scenes for splice, drift, gap and follow, returning ship for its key or findings with viewer cost, a minimal fix and its owner | `skills/Narrate/`, `skills/Assemble Video/` |
 | `Producer/EXPERT.md` | Judge a training video as a whole and over its versions for brief, stale, exposure and cost, returning ship for its video key or findings with viewer or member cost, a minimal fix and its owner skill | `skills/Produce Video/`, `skills/Set Up Voice Clone/`, `skills/Publish Video/` |
 
 ### Writing
