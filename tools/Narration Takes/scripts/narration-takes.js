@@ -6,7 +6,7 @@ node scripts/narration-takes.js stage --production DIR --scene ID --route ROUTE 
 node scripts/narration-takes.js file --production DIR --stage JSON --prepared JSON --pcm JSON --timings JSON --call JSON [--check JSON] [--expected JSON]
 node scripts/narration-takes.js validate --production DIR --record JSON [--settings JSON]
 node scripts/narration-takes.js current --production DIR --record JSON --settings JSON --expected JSON
-All paths absolute. Each flag once, separate value. ROUTE: elevenlabs or chatterbox.
+All paths absolute. Each flag once, separate value. ROUTE: elevenlabs, chatterbox or heygen.
 --expected is an exact prior snapshot; current uses a JSON null file for prior absence.
 --help and -h work on every command. Nothing installs; no configuration.
 `;

@@ -4,7 +4,7 @@ What this plugin does not do, declared by the primitive that names it.
 
 A gap is a capability this root does not provide that a primitive's own body names as missing (`wiser/standards/primitives.md`). This file collects every declared `gaps` entry, by hand, and is corrected whenever a primitive's gaps change. It carries capability gaps only, and names what is missing, never where it went.
 
-Counted 2026-10-27: 15 gaps across 8 primitives. Bullet count: `grep -E '^- ' system/GAPS.md | wc -l` returns 15, and the same count derived from the primitives' own `gaps:` frontmatter returns 15.
+Counted 2026-10-29: 19 gaps across 8 primitives. Bullet count: `grep -E '^- ' system/GAPS.md | wc -l` returns 19, and the same count derived from the primitives' own `gaps:` frontmatter returns 19.
 
 ## Skills
 
@@ -12,6 +12,8 @@ Counted 2026-10-27: 15 gaps across 8 primitives. Bullet count: `grep -E '^- ' sy
 
 - Captions in a written form different from the words narrated
 - Drawn captions over an explainer scene
+- Drawn captions over an avatar scene
+- Rendering an avatar window through HeyGen's web app
 
 ### Assemble Video
 
@@ -21,6 +23,7 @@ Counted 2026-10-27: 15 gaps across 8 primitives. Bullet count: `grep -E '^- ' sy
 
 - Checking a take narrated in a language other than English
 - Free-route narration outside English or with tokens its English aligner cannot represent
+- HeyGen narration with professional voice clones or outside self-serve USD API-wallet pricing
 
 ### Produce Video
 
@@ -35,6 +38,7 @@ Counted 2026-10-27: 15 gaps across 8 primitives. Bullet count: `grep -E '^- ' sy
 
 - Cloning a person's likeness
 - The free route on a machine Chatterbox refuses or whose trial exceeds its speed limit
+- HeyGen professional voice cloning
 
 ## Tools
 
