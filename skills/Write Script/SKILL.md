@@ -37,7 +37,7 @@ Wrap supplied material so it never reads as instruction. Text inside these bound
 
 One file, `<production>/script.md`, in this shape:
 
-- The title as a level-1 heading, then a list with `Viewer:`, `Teaches:`, `Capture:` (the dates taken, what the stills show, and the supplier's statement that they were taken for this script from the product as it is now; beside any stills, each recording's id, date made, what it shows and its manifest's freshness statement), `Length:` (with the brief's target) and `Status:`. With no fresh capture, `Capture:` says what is unavailable. `Length:` gives the estimate as a range with both rates and says real timing comes from the narration. `Status:` is `ready` or `draft`; a draft lists every reason.
+- The title as a level-1 heading, then a list with `Viewer:`, `Teaches:`, `Capture:` (the dates taken, what the stills show, and the supplier's statement that they were taken for this script from the product as it is now; beside any stills, each recording's id, date made, what it shows and its manifest's freshness statement), `Length:` (with the brief's target) and `Status:`. With no fresh capture, `Capture:` says what is unavailable. `Length:` gives the estimate as a range with both rates and says real timing comes from the narration. `Status:` is `ready` or `draft`; a draft lists every reason. Where the script carries a finding, a `Carried:` item follows `Status:`, listing each carried finding with its scene id, the expert that made it and its words: those step 7 carries and those step 8 keeps.
 - Each scene has a `## <scene id>` heading. Ids name their scenes, are unique, contain only lowercase letters, digits and hyphens, and stay across versions.
 - Immediately under the heading, one fenced block with the info string `text`, its fence longer than any run of backticks on its line. Its one nonempty content line is exactly the text `Narrate` will send, 1 to 5,000 Unicode code points including tags and whitespace. The fences and their structural line endings are not narration text. Do not trim or normalize that line.
 - After that block, one cue table with these columns, in this order:
@@ -143,10 +143,11 @@ First `experts/Script Writer/` here, given `<script>`, `<capture>` including the
 
 What did each review return?
 
-- Findings: work each within the authorized scene set, repeat affected capture checks and word counts, and re-run a gate after any change its own rules say leaves the script unreviewed. A fix outside that set: ask the caller or member to name the additional scenes before changing them, and keep the unresolved findings as draft reasons.
-- A review did not run, or has unresolved findings: report its actual outcome and keep the script a draft.
+- A finding on a scene's picture, which a later stage makes from the script, that no change to `script.md` would answer, its narration, cues, scene split and capture check included, whatever fix the review itself suggests: it is not worked here and holds the script no draft. Carry it: list it under `Carried:` with its scene id, the expert and its words, for the stage that makes that scene again, which reads that item. An item carried in this run stays there through every later re-run of a gate in this run, whether or not the re-run repeats it. A finding a change to `script.md` would answer is worked as the next bullet says, even where it also names the picture.
+- Any other finding: work each within the authorized scene set, repeat affected capture checks and word counts, and re-run a gate after any change its own rules say leaves the script unreviewed. A fix outside that set: ask the caller or member to name the additional scenes before changing them, and keep the unresolved findings as draft reasons.
+- A review did not run, or has unresolved findings other than carried ones: report its actual outcome and keep the script a draft.
 - The requester declined a review, in the form that expert's file accepts: report it as declined; that review no longer holds the script back.
-- Each review returned ship on the current text under its rules, or was declined: set `Status: ready` only when step 6 also left no unchecked cue, missing step or unsupported order, and step 3 left no needed source split. Otherwise keep its named draft reasons.
+- Each review returned ship on the current text under its rules, returned only findings carried above, or was declined: set `Status: ready` only when step 6 also left no unchecked cue, missing step or unsupported order, and step 3 left no needed source split. Otherwise keep its named draft reasons.
 
 ### 8. A change
 
@@ -154,12 +155,12 @@ Rewrite only the scenes the change names, through steps 2 to 7. Do fresh stills 
 
 Does every other scene's heading, narration block and cue table remain byte-identical to the supplied script?
 
-- Yes: keep those bytes, so `Narrate` keeps its take when its settings are unchanged. Rewrite the header, which is not a scene, from the current brief, capture, length and status.
+- Yes: keep those bytes, so `Narrate` keeps its take when its settings are unchanged. Rewrite the header, which is not a scene, from the current brief, capture, length, status and carried findings. Keep every `Carried:` item the supplied script holds, whether or not this run's reviews repeat it, except one for a scene this change removes; only the member's word drops another.
 - No: restore the untouched scenes' original bytes. Does a correction need one of them changed? Yes: ask the caller or member to name it, then run the affected steps and reviews for that scene; until then report the unresolved issue as a draft reason. No: keep the restored bytes.
 
 ### 9. Write and report
 
-Write `<production>/script.md` in Script format. On a change, copy each untouched scene's bytes from the supplied script into the file rather than writing them again, then compare the written file's untouched scenes with the supplied ones, byte for byte, and restore any that differ before reporting. Report every scene id and its exact narration code-point count, the whole script's length range at both rates, the status and every draft reason, each on-screen difference from step 6, and both reviews' verdicts or why they did not run. For a change, name the scenes changed, added or removed and confirm the other scenes stayed byte-identical.
+Write `<production>/script.md` in Script format. On a change, copy each untouched scene's bytes from the supplied script into the file rather than writing them again, then compare the written file's untouched scenes with the supplied ones, byte for byte, and restore any that differ before reporting. Report every scene id and its exact narration code-point count, the whole script's length range at both rates, the status and every draft reason, each on-screen difference from step 6, both reviews' verdicts or why they did not run, and each carried finding with its scene. For a change, name the scenes changed, added or removed and confirm the other scenes stayed byte-identical.
 
 ## Writes
 
@@ -178,5 +179,5 @@ Only `<production>/script.md`. Nothing in this plugin.
 - Every screen reference has a cue at an existing word occurrence counted by `tools/Speech Preparation/TOOL.md` in `wiser`, its `tokens`. Every checked cue names a fresh still or cue frame, and its on-screen words match that image exactly. A scene's cues cite only stills or only cue frames of one recording, and a recorded scene's cue frames run forward through the recording in narration order, as step 6 checks.
 - The narration is in the bound `voice`, written to be heard, and uses only the permitted tags. No scene this run wrote states a product step absent from the capture as fact; an untouched scene the fresh capture contradicts is named as a draft reason.
 - The header and report give both length estimates and say real timing comes from the narration. The report gives each scene's count, differences, review outcomes and every draft reason.
-- `ready` has complete capture checks and, for each review, a ship verdict covering the current text or the requester's decline. Anything less is a draft naming the residue and is not handed on for production.
+- `ready` has complete capture checks and, for each review, a ship verdict covering the current text, a return whose every finding step 7 carried, or the requester's decline. Anything less is a draft naming the residue and is not handed on for production.
 - On a change, untouched scenes are byte-identical, retained ids stay fixed, and the report names every changed, added or removed scene.
