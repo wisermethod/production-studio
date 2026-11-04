@@ -7,7 +7,7 @@ layout: 1
 
 A WISER domain plugin. This file is this root's constitution. The chain starts here: load it before the first read or write under this root.
 
-A WISER plugin for producing and editing video, training videos first: scripts written for ear and eye, narration in your own voice clone, screen walkthroughs, animation, editing and publishing. Its first skills, experts and tools are being built; each family's `AGENTS.md` index lists what it holds.
+A WISER plugin for producing and editing video, training videos first: scripts written for ear and eye, narration in your own voice clone, screen walkthroughs, animation, editing and publishing. Its first slice, for training videos, is built; each family's `AGENTS.md` index lists what it holds.
 
 ## What this root is
 
