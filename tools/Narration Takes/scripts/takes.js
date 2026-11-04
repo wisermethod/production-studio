@@ -139,7 +139,7 @@ function validate(o) {
     if (I.regular(regPath) !== regPath) fail('narration.json must stay at its production path');
     const reg = I.json(regPath); M.registry(reg);
     if (reg.scenes[record.scene]?.cid === record.cid) {
-      // A re-voice rewrites the registry's settings with its first new take while other scenes still point at
+      // A re-narration under new settings rewrites the registry's settings with its first new take while other scenes still point at
       // older takes, so a current take filed under other settings is reported for the caller to narrate again,
       // never refused as malformed.
       try { M.settingsMatch(reg.settings,record); registryMatch = true; } catch (e) { registryMatch = false; }

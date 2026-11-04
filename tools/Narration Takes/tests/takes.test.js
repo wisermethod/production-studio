@@ -254,8 +254,8 @@ test('5,000-code-point original and submitted boundaries, including astral chara
   const p=I.json(f.o.prepared); p.submitted.text+='𐐀';p.submitted.code_points++;p.submitted.sha256=I.hash(Buffer.from(p.submitted.text)); write(f.o.prepared,p);
   assert.throws(()=>T.file(f.o),/5,000/);
 });
-test('a current take filed under earlier settings is reported, not refused, so an interrupted re-voice resumes',t=>{
-  // A re-voice rewrites the registry's settings with its first new take while other scenes still point at older ones.
+test('a current take filed under earlier settings is reported, not refused, so an interrupted re-narration resumes',t=>{
+  // A re-narration under new settings rewrites the registry's settings with its first new take while other scenes still point at older ones.
   const f=fixture(t); T.current(f.current);
   const reg=I.json(f.registry); reg.settings={...reg.settings,reference_sha256:'b'.repeat(64)}; write(f.registry,reg);
   const own=T.validate({production:f.production,record:f.record,settings:f.current.settings});

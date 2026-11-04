@@ -156,7 +156,7 @@ Before upload, save a new `heygen-clone-<UUID>.json` in this program, tied to th
 - Any other status, including `invalid_arguments`, `needs_provider_capability`, `denied` or `vendor_error`: stop and load `skills/Connection Troubleshooter/` in `wiser`, handing it the sanitized status and gateway route that returned it. Its next step is not permission to retry an uncertain creation.
 - The expected data result: continue the branch. Neither data nor status: report what is missing and stop.
 
-Does the member ask to skip future gateway approvals? Yes: hand that named request to `skills/Standing Approval/` in `wiser`; ElevenLabs' and HeyGen's voice actions are not eligible, so do not promise an exemption or bypass a stop here. ElevenLabs narration's synthesis is eligible, and `skills/Narrate/` offers that grant; HeyGen synthesis has confirmation none and needs no grant. No: continue without that skill.
+Does the member ask to skip future gateway approvals? Yes: hand that named request to `skills/Standing Approval/` in `wiser`; ElevenLabs' and HeyGen's voice clone actions are not eligible, so do not promise an exemption or bypass a stop here. ElevenLabs narration's synthesis is eligible, and `skills/Narrate/` offers that grant; HeyGen synthesis has confirmation none and needs no grant. No: continue without that skill.
 
 ### 6. The free route only
 
