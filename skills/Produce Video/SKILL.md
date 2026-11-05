@@ -3,7 +3,7 @@ name: Produce Video
 type: skill
 category: media
 description: One long-form training video produced from a brief or changed from one sentence, with fresh redacted product stills and recorded runs, a production record, a finished-frame privacy check and the Producer's verdict before publishing
-version: 0.4.0
+version: 0.4.1
 memory:
   - design
 gaps:
@@ -260,6 +260,8 @@ Can this app open a second context that did not make the version, per Behavioral
 Record the publish record path and hash, reported spend and quota, and returned upload id even on an incomplete publish. When a resume completes the row, copy `publish.md` into `records/` again and point `records.publish` at that copy. Did Publish Video record this upload complete and current, with the replacement finished where required? No: stop with its unfinished work, keeping this production's prior `current`. Yes: record published and only then set `current` to this version's `n`. Preserve the earlier version and its upload link.
 
 ### 10. A change
+
+If a published video is reported fuzzy, run **Publish Video** by name with the report and `<production>` for its watch-page check and follow its diagnosis before proposing or making a replacement.
 
 Read the current version and its capture folder, existing script, plan and narration records. Unless the sentence changes only the caption mode or style, select Narrate's recorded route and voice clone now, before any capture or recording, through step 2's same lookup, selecting that person's entry for this pass; a legacy narration record without `route` matches its `settings.voice_id` to that one retained legacy speaker, then uses their clone on the root's route or sets it up for that person there. Keep `<change>` exactly as the member's sentence, or step 3's sourced description for a rule-only change, subject to step 3's term-reference rule for storage and handoff. Allocate the next version number as step 1 says, initially held with this sentence, comparison and later phases owed, no completed records, and null video key and upload. Does that sentence change only caption mode or style? Yes: revise this version's target and saved answer by step 1's caption rule, using the supplied choices without asking them again, and record the target change with that sentence; an avatar plan still keeps `none`. No: retain the caption target unless the sentence also explicitly changes it, in which case carry that change through the same rule. Both paths still capture and compare as follows. Does the plan hold recorded scenes and no walkthrough stills? Yes: allocate its fresh capture folder but skip still capture and comparison, stating that no still comparison applies. No: run every walkthrough recipe again into its fresh capture folder, applying the stored blur rules and clearing as step 4 states. From Screen Capture's directory run `python3 scripts/capture.py compare --a "<current capture folder>" --b "<new capture folder>"`; each directory holds aggregate `raw/<still id>.png`. Save its comparison result under the new capture folder, keeping raw files private. A failed comparison: stop and name the missing result, never assume equality.
 
