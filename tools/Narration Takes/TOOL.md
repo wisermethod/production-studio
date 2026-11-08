@@ -4,6 +4,7 @@ type: tool
 category: media
 description: Stage narration sources, file and validate take evidence, and update an eligible scene current pointer against its expected prior registry
 version: 0.1.0
+runs: local
 ---
 
 # Narration Takes

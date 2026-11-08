@@ -1,6 +1,8 @@
 ---
 root: production-studio
-layout: 1
+layout: 2
+apps:
+  - claude-code steps
 ---
 
 # Production Studio

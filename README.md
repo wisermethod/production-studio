@@ -4,7 +4,11 @@ A WISER plugin for producing and editing video, training videos first: scripts w
 
 ## Install
 
-Point your harness at this repository as a plugin root, or add the repository as a marketplace and install `production-studio@wiser-method-production-studio` from its catalog.
+Install Wiser first, by its [Install steps](https://github.com/wisermethod/wiser#install): this plugin loads beside it. Then add this plugin in Claude Code:
+
+- **Claude Code.** Run `claude plugin marketplace add wisermethod/production-studio`, then `claude plugin install production-studio@wiser-method-production-studio`, and start Claude Code in your working folder.
+
+Its steps are written for Claude Code alone. Another app needs what [What it needs](#what-it-needs) lists for each part, such as Wiser's local gateway for narration and publishing, and a Mac for producing a video.
 
 Work lands in the working folder you attach, never in this repository.
 
