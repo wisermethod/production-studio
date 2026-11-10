@@ -101,11 +101,13 @@ Each phase's stop is this run's stop. Record what completed, the stop and what i
 
 ### 1. Frame
 
-Is a folder attached to this chat (skip this check if a calling skill has already taken it)? Yes: continue. No: say "This needs a folder to keep the work in. Attach one to this chat, then ask again." only if it has not already been said in this chat, then stop: attempt no workaround, offer no cut-down version, and start none of the work in chat. Never mention installing: this skill is read only where its plugin is installed.
+Is the target a short? Yes: take Context's named gap stop before any write. No: continue.
+
+Is a folder attached to this chat (skip only when a calling skill took this same check and continued)? Yes: continue. No: say "This needs a folder to keep the work in. Attach one to this chat, then ask again." only if it has not already been said in this chat, then stop: attempt no workaround, offer no cut-down version, and start none of the work in chat. Do not give the video install sentence at this folder check. A tool page's own install consent still applies. If a required `wiser` file is missing, name the step that needs it and stop it, then direct the member to install Wiser first by its Install steps (https://github.com/wisermethod/wiser#install): Production Studio loads beside the base plugin `wiser`, which carries the connectors and the tools it calls. A called `wiser` skill available through the connector still takes its own provenance check.
 
 After this check continues, resolve the owning root and load its chain per Workspace Model in `AGENTS.md` in `wiser`. Is the production an absolute path resolving inside that root's declared work, with the brief and target known? No: ask for what is missing before any write. Yes: use it. A production is a project under `standards/user-root.md` C3 and C4 in `wiser`, or a part of the project that holds it. A new production folder directly under `work/`, or directly inside a program, with no `AGENTS.md`: write one, once, saying what the production is and that its completion condition awaits its owner, as C4 records it; never ask the member to invent one or wait on it. A folder inside an existing project is a part of it, and its `AGENTS.md` is left as it is.
 
-Is the target a short? Yes: take Context's named gap stop before any write. No: continue. Load each of the six named skills here before running it or reading its record, and each tool's `TOOL.md` in `wiser` before preparing or running its commands.
+Load each of the six named skills here before running it or reading its record, and each tool's `TOOL.md` in `wiser` before preparing or running its commands.
 
 Read any existing production record against Production record. Before selecting a branch below, apply step 3's blur-rule intake and source record alone; its capture-plan fixing and version allocation wait for that step. Set aside every version recorded `abandoned`. Which holds for the latest other version?
 
