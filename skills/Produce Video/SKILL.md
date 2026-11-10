@@ -3,7 +3,7 @@ name: Produce Video
 type: skill
 category: media
 description: One long-form training video produced from a brief or changed from one sentence, with fresh redacted product stills and recorded runs, a production record, a finished-frame privacy check and the Producer's verdict before publishing
-version: 0.4.1
+version: 0.4.2
 memory:
   - design
 gaps:
@@ -101,7 +101,9 @@ Each phase's stop is this run's stop. Record what completed, the stop and what i
 
 ### 1. Frame
 
-Resolve the owning root and load its chain per Workspace Model in `AGENTS.md` in `wiser`. Is the production an absolute path resolving inside that root's declared work, with the brief and target known? No: ask for what is missing before any write. Yes: use it. A production is a project under `standards/user-root.md` C3 and C4 in `wiser`, or a part of the project that holds it. A new production folder directly under `work/`, or directly inside a program, with no `AGENTS.md`: write one, once, saying what the production is and that its completion condition awaits its owner, as C4 records it; never ask the member to invent one or wait on it. A folder inside an existing project is a part of it, and its `AGENTS.md` is left as it is.
+Is a folder attached to this chat (skip this check if a calling skill has already taken it)? Yes: continue. No: say "This needs a folder to keep the work in. Attach one to this chat, then ask again." only if it has not already been said in this chat, then stop: attempt no workaround, offer no cut-down version, and start none of the work in chat. Never mention installing: this skill is read only where its plugin is installed.
+
+After this check continues, resolve the owning root and load its chain per Workspace Model in `AGENTS.md` in `wiser`. Is the production an absolute path resolving inside that root's declared work, with the brief and target known? No: ask for what is missing before any write. Yes: use it. A production is a project under `standards/user-root.md` C3 and C4 in `wiser`, or a part of the project that holds it. A new production folder directly under `work/`, or directly inside a program, with no `AGENTS.md`: write one, once, saying what the production is and that its completion condition awaits its owner, as C4 records it; never ask the member to invent one or wait on it. A folder inside an existing project is a part of it, and its `AGENTS.md` is left as it is.
 
 Is the target a short? Yes: take Context's named gap stop before any write. No: continue. Load each of the six named skills here before running it or reading its record, and each tool's `TOOL.md` in `wiser` before preparing or running its commands.
 

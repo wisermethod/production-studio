@@ -3,7 +3,7 @@ name: Write Script
 type: skill
 category: writing
 description: A scene-by-scene training video script in the owning root's bound voice, pairing narration with word cues checked against fresh product stills, or a draft naming what remains unchecked
-version: 0.2.0
+version: 0.2.1
 memory:
   - voice
 ---
@@ -52,6 +52,8 @@ One file, `<production>/script.md`, in this shape:
 ## Steps
 
 ### 1. Frame
+
+Is a folder attached to this chat (skip this check if a calling skill has already taken it)? Yes: continue. No: say "This needs a folder to keep the work in. Attach one to this chat, then ask again." only if it has not already been said in this chat, then stop: attempt no workaround, offer no cut-down version, and start none of the work in chat. Never mention installing: this skill is read only where its plugin is installed.
 
 Resolve the owning root and load its instruction chain and bound `voice` file per Inputs and Workspace Model in `AGENTS.md` in `wiser`. Are the owning root, an available bound `voice`, the viewer, what the video teaches, the target length and the production folder known?
 

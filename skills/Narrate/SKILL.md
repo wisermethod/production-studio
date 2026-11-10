@@ -3,7 +3,7 @@ name: Narrate
 type: skill
 category: media
 description: Narration for supplied scenes through the root's ElevenLabs, HeyGen or free local route in the selected person's voice clone, filed with word timings and each English take checked sentence by sentence
-version: 0.3.0
+version: 0.3.1
 gaps:
   - Checking a take narrated in a language other than English
   - Free-route narration outside English or with tokens its English aligner cannot represent
@@ -43,9 +43,11 @@ Write only inside the production folder, including new per-scene `attempt-<UUID>
 
 For each scene selected in step 4, finish steps 6 to 8 before starting the next scene, in supplied order. Completion and check-only work makes no synthesis call. A failed tool, write or gateway status stops dependent work and later synthesis; retain completed evidence and report through step 9. A pending answer waits. Every number written to a record is a JSON number, never a string or boolean.
 
-Load `tools/Narration Takes/TOOL.md` here, and `tools/Speech Preparation/TOOL.md`, `tools/Transcribe Audio/TOOL.md` and `tools/RUNNING.md` in `wiser` before preparing their inputs. Load `tools/Chatterbox/TOOL.md` for the free route, `connectors/elevenlabs/CONNECTOR.md` for ElevenLabs, or `connectors/heygen/CONNECTOR.md` and `auth.md` for HeyGen, before using that route. Run each tool from its own directory, first with `help`; every path handed to it is absolute. Dependencies and install consent follow those pages and Behavioral Core in `AGENTS.md` in `wiser`; an unavailable operation yields no substitute evidence or retake.
-
 ### 1. The scenes
+
+Is a folder attached to this chat (skip this check if a calling skill has already taken it)? Yes: continue. No: say "This needs a folder to keep the work in. Attach one to this chat, then ask again." only if it has not already been said in this chat, then stop: attempt no workaround, offer no cut-down version, and start none of the work in chat. Never mention installing: this skill is read only where its plugin is installed.
+
+After the check continues, load `tools/Narration Takes/TOOL.md` here, and `tools/Speech Preparation/TOOL.md`, `tools/Transcribe Audio/TOOL.md` and `tools/RUNNING.md` in `wiser` before preparing their inputs. Load `tools/Chatterbox/TOOL.md` for the free route, `connectors/elevenlabs/CONNECTOR.md` for ElevenLabs, or `connectors/heygen/CONNECTOR.md` and `auth.md` for HeyGen, before using that route. Run each tool from its own directory, first with `help`; every path handed to it is absolute. Dependencies and install consent follow those pages and Behavioral Core in `AGENTS.md` in `wiser`; an unavailable operation yields no substitute evidence or retake.
 
 Resolve the owning root and load its instruction chain under Workspace Model in `AGENTS.md` in `wiser`. Are that root and the production resolved, with the production inside its declared work? No: ask for what is missing before reading or writing there. Yes: continue.
 
