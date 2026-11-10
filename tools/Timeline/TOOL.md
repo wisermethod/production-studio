@@ -5,6 +5,7 @@ category: media
 description: Cuts silent recordings to exact planned frames and writes a BT.709 video, an OpenTimelineIO timeline and processing records
 version: 0.1.0
 runs: local
+local-only: cuts the member's local recordings with Python, FFmpeg and ffprobe
 gaps:
   - Cutting a recording that carries audio
   - Slowing a segment down or changing its speed by other than a whole number

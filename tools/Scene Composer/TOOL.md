@@ -5,6 +5,7 @@ category: media
 description: Composes one still walkthrough scene into a seek-driven HTML project, writes a scene's captions alone as a transparent layer, makes a scene's caption lines from its narration text, writes a scene's caption track and timing from its narration alone, and joins scene caption tracks
 version: 0.4.0
 runs: local
+local-only: compose and layer read a local still and font files and write a project folder; lines and timing are not yet split into a core
 gaps:
   - Composing a scene from more than one still
   - Choosing the side of its rectangle a callout's label sits on
