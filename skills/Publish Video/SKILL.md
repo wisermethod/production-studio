@@ -3,7 +3,7 @@ name: Publish Video
 type: skill
 category: media
 description: A finished production published unlisted on the member's YouTube channel with captions, a custom thumbnail, chapter timestamps and a playlist item, recorded with its current version or what remains incomplete
-version: 0.1.3
+version: 0.1.4
 memory:
   - design
 gaps:
@@ -261,7 +261,7 @@ Give the upload's video id and `https://www.youtube.com/watch?v=VIDEO_ID`, its o
 
 Give quota spent using the connector's table, itemized by completed write and actual read count, and uploads used from the 100-a-day bucket. Confirmation stops themselves send nothing to YouTube. Refused or retried vendor calls make the exact total unavailable: label the table sum as accounted quota and state the unmeasured extra; never invent a remaining project balance. Name every incomplete requirement, bound passed and write whose result or record could not be saved.
 
-For the current upload, give `https://www.youtube.com/embed/VIDEO_ID` and name `skills/Site Author/` in `wiser` as where a page embedding it is made. No current upload: say no current embed is available. This skill writes no site.
+For the current upload, give `https://www.youtube.com/embed/VIDEO_ID` and hand it to the member's site-authoring capability for a page that embeds it. No current upload: say no current embed is available. This skill writes no site.
 
 ## Pitfalls
 
